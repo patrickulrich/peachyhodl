@@ -48,6 +48,7 @@ export function useNIP100() {
   
   const eventHandlersRef = useRef<Map<string, (event: WebRTCSignalingEvent) => void>>(new Map());
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
+  const processedEventsRef = useRef<Set<string>>(new Set()); // Prevent duplicate event processing
 
   // Encrypt content for WebRTC signaling
   const encryptContent = useCallback(async (content: unknown, recipientPubkey: string): Promise<string> => {
@@ -78,7 +79,7 @@ export function useNIP100() {
   }, [user]);
 
   // Publish connect event
-  const publishConnect = useCallback(async (roomId?: string, targetPubkeys?: string[]) => {
+  const publishConnect = useCallback(async (roomId?: string, _targetPubkeys?: string[]) => {
     if (!user) throw new Error('User not authenticated');
 
     const tags = [['type', 'connect']];
@@ -88,18 +89,10 @@ export function useNIP100() {
       tags.push(['r', roomId]);
     }
     
-    // For group rooms, we publish a public event that everyone can see
-    // rather than encrypting to specific participants
-    if (roomId && (!targetPubkeys || targetPubkeys.length === 0)) {
-      // Broadcast connect - no specific targets, anyone can see
-      // This allows discovery of the room by all participants
-    } else if (targetPubkeys && targetPubkeys.length > 0) {
-      // Specific participants
-      for (const pubkey of targetPubkeys) {
-        tags.push(['p', pubkey]);
-      }
-    }
-
+    // NRTC pattern: Connect events are public broadcasts to announce presence
+    // No specific targets - this is a room-wide announcement
+    // Existing participants will see this and initiate connections TO the new user
+    
     await publishEvent({
       kind: 25050,
       content: `Joining room: ${roomId || 'unknown'}`,
@@ -376,6 +369,10 @@ export function useNIP100() {
 
       const handleEvent = async (event: NostrEvent) => {
         try {
+          // Skip if we've already processed this event
+          if (processedEventsRef.current.has(event.id)) return;
+          processedEventsRef.current.add(event.id);
+
           const typeTag = event.tags.find(([tag]) => tag === 'type')?.[1];
           const targetPubkey = event.tags.find(([tag]) => tag === 'p')?.[1];
           const roomTag = event.tags.find(([tag]) => tag === 'r')?.[1];
@@ -565,6 +562,7 @@ export function useNIP100() {
     }
     setIsListening(false);
     setAvailableRooms(new Map());
+    processedEventsRef.current.clear(); // Clear processed events
   }, []);
 
   // Cleanup on unmount

@@ -12,8 +12,11 @@ import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
 export function AppRouter() {
+  // Get base path from environment, remove trailing slash if present
+  const basename = import.meta.env.VITE_BASE_PATH?.replace(/\/$/, '') || "";
+  
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Index />} />

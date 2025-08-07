@@ -157,25 +157,19 @@ export function AudioRoom() {
 
     const handleConnect = async (event: WebRTCSignalingEvent) => {
       if (event.roomId === roomId && event.pubkey !== user.pubkey && isJoined) {
-        // Someone else joined the room, we need to establish WebRTC connection
+        // Someone else joined the room - we (existing user) should initiate connection TO them
         try {
-          console.log(`New participant joined: ${event.pubkey.substring(0, 8)}...`);
+          console.log(`New participant joined: ${event.pubkey.substring(0, 8)}... - initiating connection`);
           
-          // Use pubkey comparison to determine who should initiate
-          // The user with the lexicographically smaller pubkey initiates
-          const shouldInitiate = user.pubkey < event.pubkey;
-          
-          if (shouldInitiate) {
-            console.log(`Initiating connection to ${event.pubkey.substring(0, 8)}...`);
-            const offer = await createOffer(event.pubkey);
-            if (offer) {
-              await publishOffer(offer, event.pubkey, roomId);
-            }
-          } else {
-            console.log(`Waiting for connection from ${event.pubkey.substring(0, 8)}...`);
+          // NRTC pattern: Existing users always initiate to new users
+          // This prevents race conditions when multiple people join simultaneously
+          const offer = await createOffer(event.pubkey);
+          if (offer) {
+            await publishOffer(offer, event.pubkey, roomId);
+            console.log(`Sent offer to ${event.pubkey.substring(0, 8)}...`);
           }
         } catch (error) {
-          console.error('Failed to handle connect event:', error);
+          console.error('Failed to create offer for new participant:', error);
         }
       }
     };
@@ -245,6 +239,7 @@ export function AudioRoom() {
   }, [
     user,
     roomId,
+    isJoined,
     createOffer,
     handleOffer,
     handleAnswer,
@@ -271,7 +266,7 @@ export function AudioRoom() {
         };
       }
     });
-  }, [peers, publishIceCandidate, roomId, user, isJoined]);
+  }, [peers, publishIceCandidate, roomId, user]);
 
   // Audio level monitoring
   useEffect(() => {
