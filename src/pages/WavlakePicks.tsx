@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import { ManagePicksDialog } from '@/components/music/ManagePicksDialog';
 import { useWavlakePicks, useTracksFromList } from '@/hooks/useMusicLists';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { MusicTrack } from '@/hooks/useMusicLists';
-import { Music, Settings, ExternalLink, Zap } from 'lucide-react';
+import { Music, Settings, ExternalLink, Zap, Compass } from 'lucide-react';
 
 // Peachy's pubkey for checking if current user is Peachy
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -98,22 +99,33 @@ const WavlakePicks = () => {
               </p>
             </div>
             
-            {/* Manage button for Peachy */}
-            {isPeachy && (
-              <ManagePicksDialog 
-                currentList={wavlakeList || undefined}
-                currentTracks={tracks}
-                onListUpdated={handleListUpdated}
-              >
-                <Button 
-                  variant="outline" 
-                  className="flex items-center gap-2"
+            {/* Action buttons */}
+            <div className="flex items-center gap-3">
+              {/* Explore Wavlake button - visible to everyone */}
+              <Button variant="outline" asChild>
+                <Link to="/explore-wavlake" className="flex items-center gap-2">
+                  <Compass className="h-4 w-4" />
+                  Explore Wavlake
+                </Link>
+              </Button>
+              
+              {/* Manage button for Peachy only */}
+              {isPeachy && (
+                <ManagePicksDialog 
+                  currentList={wavlakeList || undefined}
+                  currentTracks={tracks}
+                  onListUpdated={handleListUpdated}
                 >
-                  <Settings className="h-4 w-4" />
-                  Manage List
-                </Button>
-              </ManagePicksDialog>
-            )}
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Manage List
+                  </Button>
+                </ManagePicksDialog>
+              )}
+            </div>
           </div>
         </div>
 

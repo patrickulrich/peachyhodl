@@ -10,6 +10,7 @@ import WavlakePicks from "./pages/WavlakePicks";
 import Blog from "./pages/Blog";
 import WavlakeArtist from "./pages/WavlakeArtist";
 import WavlakeAlbum from "./pages/WavlakeAlbum";
+import WavlakeExplore from "./pages/WavlakeExplore";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
@@ -29,6 +30,7 @@ export function AppRouter() {
         <Route path="/wavlake-picks" element={<WavlakePicks />} />
         <Route path="/wavlake-pics" element={<WavlakePicks />} />
         <Route path="/blog" element={<Blog />} />
+        <Route path="/explore-wavlake" element={<WavlakeExplore />} />
         <Route path="/artist/:artistId" element={<WavlakeArtist />} />
         <Route path="/album/:albumId" element={<WavlakeAlbum />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
