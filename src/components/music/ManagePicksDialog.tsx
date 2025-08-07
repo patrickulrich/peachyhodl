@@ -163,8 +163,8 @@ export function ManagePicksDialog({
     try {
       setIsLoading(true);
       
-      // Check if track is already in the list
-      const isAlreadyAdded = currentTracks.some(t => t.id === track.id);
+      // Check if track is already in the list by looking at the raw references
+      const isAlreadyAdded = (currentList?.tracks || []).includes(track.id);
       if (isAlreadyAdded) {
         toast({
           title: 'Track Already Added',
@@ -217,7 +217,7 @@ export function ManagePicksDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [user, currentList, currentTracks, publishEvent, toast, onListUpdated, queryClient]);
+  }, [user, currentList, publishEvent, toast, onListUpdated, queryClient]);
 
   // Remove track from the list
   const removeTrackFromList = useCallback(async (track: MusicTrack) => {

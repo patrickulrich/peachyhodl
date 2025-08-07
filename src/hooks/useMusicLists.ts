@@ -259,60 +259,91 @@ export function useTracksFromList(trackRefs: string[]) {
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
       
-      // Filter out URLs and only process actual event references
+      // Separate different types of references
       const eventIds: string[] = [];
       const addresses: string[] = [];
+      const urls: string[] = [];
 
       trackRefs.forEach(ref => {
         if (ref.startsWith('http')) {
-          // Skip URLs for now - these should be converted to event references
-          return;
+          urls.push(ref);
         } else if (ref.startsWith('e:')) {
           eventIds.push(ref.substring(2));
         } else if (ref.includes(':')) {
           addresses.push(ref);
         } else {
-          // Assume direct event ID
+          // Assume direct event ID (hex string)
           eventIds.push(ref);
         }
       });
 
-      if (eventIds.length === 0 && addresses.length === 0) return [];
+      const allMusicEvents: NostrEvent[] = [];
 
-      // First, get the kind 1 events that reference music
-      const kind1Events = eventIds.length > 0 ? await nostr.query([{
-        ids: eventIds,
-        kinds: [1],
-      }], { signal }) : [];
-
-      // Extract a tags pointing to kind 32123 events
-      const musicEventRefs: string[] = [];
-      
-      kind1Events.forEach(event => {
-        event.tags
-          .filter(([tag, value]) => tag === 'a' && value?.includes('32123:'))
-          .forEach(([, value]) => {
-            if (value) musicEventRefs.push(value);
+      // First, try to get the events as kind 32123 directly
+      if (eventIds.length > 0) {
+        const musicEvents = await nostr.query([{
+          ids: eventIds,
+          kinds: [32123],
+        }], { signal });
+        
+        allMusicEvents.push(...musicEvents);
+        
+        // If we didn't find them as kind 32123, maybe they're kind 1 references
+        const missingIds = eventIds.filter(id => 
+          !musicEvents.some(event => event.id === id)
+        );
+        
+        if (missingIds.length > 0) {
+          const kind1Events = await nostr.query([{
+            ids: missingIds,
+            kinds: [1],
+          }], { signal });
+          
+          // Extract a tags pointing to kind 32123 events
+          const musicEventRefs: string[] = [];
+          
+          kind1Events.forEach(event => {
+            event.tags
+              .filter(([tag, value]) => tag === 'a' && value?.includes('32123:'))
+              .forEach(([, value]) => {
+                if (value) musicEventRefs.push(value);
+              });
           });
-      });
+          
+          if (musicEventRefs.length > 0) {
+            // Parse addresses to get individual kind 32123 events
+            const musicQueries = musicEventRefs.map(ref => {
+              const [kind, pubkey, dTag] = ref.split(':');
+              return {
+                kinds: [parseInt(kind)],
+                authors: [pubkey],
+                '#d': [dTag],
+              };
+            });
+            
+            const referencedMusic = await nostr.query(musicQueries, { signal });
+            allMusicEvents.push(...referencedMusic);
+          }
+        }
+      }
 
-      if (musicEventRefs.length === 0) return [];
-
-      // Parse addresses to get individual kind 32123 events
-      const musicQueries = musicEventRefs.map(ref => {
-        const [kind, pubkey, dTag] = ref.split(':');
-        return {
-          kinds: [parseInt(kind)],
-          authors: [pubkey],
-          '#d': [dTag],
-        };
-      });
-
-      // Get all the kind 32123 music events
-      const musicEvents = await nostr.query(musicQueries, { signal });
+      // Handle addressable event references
+      if (addresses.length > 0) {
+        const addressQueries = addresses.map(ref => {
+          const [kind, pubkey, dTag] = ref.split(':');
+          return {
+            kinds: [parseInt(kind)],
+            authors: [pubkey],
+            '#d': [dTag],
+          };
+        });
+        
+        const addressableEvents = await nostr.query(addressQueries, { signal });
+        allMusicEvents.push(...addressableEvents);
+      }
 
       // Parse tracks and return
-      const tracks = musicEvents
+      const tracks = allMusicEvents
         .map(parseMusicTrack)
         .filter((track): track is MusicTrack => track !== null);
 
