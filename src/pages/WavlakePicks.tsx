@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { RelaySelector } from '@/components/RelaySelector';
 import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { TrackList } from '@/components/music/TrackList';
+import { ManagePicksDialog } from '@/components/music/ManagePicksDialog';
 import { useWavlakePicks, useTracksFromList } from '@/hooks/useMusicLists';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { MusicTrack } from '@/hooks/useMusicLists';
@@ -67,10 +68,11 @@ const WavlakePicks = () => {
     setCurrentTrack(tracks[prevIndex]);
   };
 
-  const handleManageList = () => {
-    // TODO: Implement list management functionality
-    // This could open a modal or navigate to a management page
-    console.log('Manage list clicked - implementing soon!');
+  // Refetch data when list is updated
+  const handleListUpdated = () => {
+    // Force refetch of the Wavlake picks list
+    // This will be handled by React Query's cache invalidation
+    window.location.reload(); // Simple approach for now
   };
 
   const formatDate = (timestamp: number) => {
@@ -98,14 +100,19 @@ const WavlakePicks = () => {
             
             {/* Manage button for Peachy */}
             {isPeachy && (
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2"
-                onClick={handleManageList}
+              <ManagePicksDialog 
+                currentList={wavlakeList || undefined}
+                currentTracks={tracks}
+                onListUpdated={handleListUpdated}
               >
-                <Settings className="h-4 w-4" />
-                Manage List
-              </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Manage List
+                </Button>
+              </ManagePicksDialog>
             )}
           </div>
         </div>
