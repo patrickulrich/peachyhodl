@@ -1,16 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import { useCurrentUser } from './useCurrentUser';
 import { useToast } from './useToast';
-
-export interface PeerConnection {
-  id: string;
-  connection: RTCPeerConnection;
-  dataChannel?: RTCDataChannel;
-  localStream?: MediaStream;
-  remoteStream?: MediaStream;
-  isMuted: boolean;
-  isVideoEnabled: boolean;
-}
 
 export interface WebRTCConfig {
   iceServers: RTCIceServer[];
@@ -23,27 +13,38 @@ const DEFAULT_CONFIG: WebRTCConfig = {
   ],
 };
 
+// NRTC Pattern: Direct object management (no React state for peers)
+const peers: Record<string, RTCPeerConnection> = {};
+let remoteAudioElement: HTMLAudioElement | null = null;
+let remoteStream: MediaStream | null = null;
+
 export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
   const { user: _user } = useCurrentUser();
   const { toast } = useToast();
   
-  const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
+  // Only use React state for UI-related state that needs re-renders
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [_isConnecting, _setIsConnecting] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [users, setUsers] = useState<string[]>([]);
   
   const localStreamRef = useRef<MediaStream | null>(null);
-  const peersRef = useRef<Map<string, PeerConnection>>(new Map());
+
+  // Initialize global audio element and stream (NRTC pattern)
+  useEffect(() => {
+    if (!remoteStream) {
+      remoteStream = new MediaStream();
+      remoteAudioElement = document.querySelector("#remoteAudio");
+      if (remoteAudioElement) {
+        remoteAudioElement.srcObject = remoteStream;
+      }
+    }
+  }, []);
 
   // Update refs when state changes
   useEffect(() => {
     localStreamRef.current = localStream;
   }, [localStream]);
-
-  useEffect(() => {
-    peersRef.current = peers;
-  }, [peers]);
 
   // Initialize local media stream
   const initializeMedia = useCallback(async (video = false, audio = true) => {
@@ -69,62 +70,65 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
     }
   }, [toast]);
 
-  // Create a new peer connection
-  const createPeerConnection = useCallback((_peerId: string): RTCPeerConnection => {
-    const pc = new RTCPeerConnection(config);
-    
-    // Add local stream tracks if available
+  // NRTC Pattern: Helper functions for peer management
+  const addLocalStream = useCallback((pc: RTCPeerConnection) => {
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
+      localStreamRef.current.getTracks().forEach((track) => {
         pc.addTrack(track, localStreamRef.current!);
       });
     }
+  }, []);
 
-    return pc;
-  }, [config]);
+  const addRemoteStream = useCallback((pc: RTCPeerConnection) => {
+    pc.ontrack = (evt) => {
+      if (remoteStream && evt.track) {
+        remoteStream.addTrack(evt.track);
+      }
+    };
+  }, []);
 
-  // Create offer for a peer
-  const createOffer = useCallback(async (peerId: string): Promise<RTCSessionDescriptionInit | null> => {
+  // NRTC Pattern: Remove peer connection
+  const removeRTCPeerConnection = useCallback((id: string) => {
+    const pc = peers[id];
+    if (!pc) return;
+
+    pc.close();
+    delete peers[id];
+    
+    // Update users list for UI
+    setUsers(Object.keys(peers));
+    
+    console.log(`removed rtc peer connection ${id}`);
+  }, []);
+
+  // NRTC Pattern: Initialize peer connection and create offer
+  const initRTCPeerConnection = useCallback(async (id: string, onIceCandidate?: (candidate: RTCIceCandidate) => void): Promise<RTCSessionDescriptionInit | null> => {
     try {
-      const pc = createPeerConnection(peerId);
-      
-      // Set up event handlers
+      const pc = new RTCPeerConnection(config);
+
+      addLocalStream(pc);
+      addRemoteStream(pc);
+
+      // Set up ICE candidate handler
       pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          // This will be handled by the parent component
-          // to send ICE candidates via Nostr
+        if (event.candidate && onIceCandidate) {
+          onIceCandidate(event.candidate);
         }
       };
 
-      pc.ontrack = (event) => {
-        const remoteStream = event.streams[0];
-        setPeers(prev => {
-          const newPeers = new Map(prev);
-          const peer = newPeers.get(peerId);
-          if (peer) {
-            peer.remoteStream = remoteStream;
-            newPeers.set(peerId, peer);
-          }
-          return newPeers;
-        });
-      };
+      // Add peer connection to peers list (NRTC pattern)
+      peers[id] = pc;
 
-      // Create offer
+      // Update users list for UI
+      setUsers(Object.keys(peers));
+
+      // Create a new offer
       const offer = await pc.createOffer();
+
+      // Set offer as local description
       await pc.setLocalDescription(offer);
 
-      // Store peer connection
-      setPeers(prev => {
-        const newPeers = new Map(prev);
-        newPeers.set(peerId, {
-          id: peerId,
-          connection: pc,
-          isMuted: false,
-          isVideoEnabled: false,
-        });
-        return newPeers;
-      });
-
+      console.log(`init new rtc peer connection for client ${id}`, offer);
       return offer;
     } catch (error) {
       console.error('Failed to create offer:', error);
@@ -135,55 +139,49 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
       });
       return null;
     }
-  }, [createPeerConnection, toast]);
+  }, [config, addLocalStream, addRemoteStream, toast]);
 
-  // Handle incoming offer
-  const handleOffer = useCallback(async (
-    peerId: string, 
-    offer: RTCSessionDescriptionInit
+  // NRTC Pattern: Handle incoming offer
+  const onRTCOffer = useCallback(async (
+    id: string, 
+    offer: RTCSessionDescriptionInit,
+    onIceCandidate?: (candidate: RTCIceCandidate) => void
   ): Promise<RTCSessionDescriptionInit | null> => {
     try {
-      const pc = createPeerConnection(peerId);
+      console.log(`got offer from ${id}`, offer);
 
-      // Set up event handlers
+      if (!offer) return null;
+
+      const pc = new RTCPeerConnection(config);
+
+      addLocalStream(pc);
+      addRemoteStream(pc);
+
+      // Set up ICE candidate handler
       pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          // This will be handled by the parent component
-          // to send ICE candidates via Nostr
+        if (event.candidate && onIceCandidate) {
+          onIceCandidate(event.candidate);
         }
       };
 
-      pc.ontrack = (event) => {
-        const remoteStream = event.streams[0];
-        setPeers(prev => {
-          const newPeers = new Map(prev);
-          const peer = newPeers.get(peerId);
-          if (peer) {
-            peer.remoteStream = remoteStream;
-            newPeers.set(peerId, peer);
-          }
-          return newPeers;
-        });
+      // Set up disconnect handler
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === "disconnected") {
+          removeRTCPeerConnection(id);
+        }
       };
 
-      // Set remote description
-      await pc.setRemoteDescription(offer);
+      // Add to peers list (NRTC pattern)
+      peers[id] = pc;
 
-      // Create answer
+      // Update users list for UI
+      setUsers(Object.keys(peers));
+
+      const desc = new RTCSessionDescription(offer);
+      await pc.setRemoteDescription(desc);
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-
-      // Store peer connection
-      setPeers(prev => {
-        const newPeers = new Map(prev);
-        newPeers.set(peerId, {
-          id: peerId,
-          connection: pc,
-          isMuted: false,
-          isVideoEnabled: false,
-        });
-        return newPeers;
-      });
 
       return answer;
     } catch (error) {
@@ -195,15 +193,27 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
       });
       return null;
     }
-  }, [createPeerConnection, toast]);
+  }, [config, addLocalStream, addRemoteStream, removeRTCPeerConnection, toast]);
 
-  // Handle incoming answer
-  const handleAnswer = useCallback(async (peerId: string, answer: RTCSessionDescriptionInit) => {
+  // NRTC Pattern: Handle incoming answer
+  const onRTCAnswer = useCallback(async (id: string, answer: RTCSessionDescriptionInit) => {
     try {
-      const peer = peersRef.current.get(peerId);
-      if (peer) {
-        await peer.connection.setRemoteDescription(answer);
-      }
+      console.log(`got answer from ${id}`, answer);
+
+      const pc = peers[id];
+      if (!pc) return;
+
+      // Set up disconnect handler
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === "disconnected") {
+          removeRTCPeerConnection(id);
+        }
+      };
+
+      if (!answer) return;
+
+      const desc = new RTCSessionDescription(answer);
+      await pc.setRemoteDescription(desc);
     } catch (error) {
       console.error('Failed to handle answer:', error);
       toast({
@@ -212,15 +222,19 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [removeRTCPeerConnection, toast]);
 
-  // Handle incoming ICE candidate
-  const handleIceCandidate = useCallback(async (peerId: string, candidate: RTCIceCandidateInit) => {
+  // NRTC Pattern: Handle incoming ICE candidate
+  const onRTCIceCandidate = useCallback(async (id: string, candidate: RTCIceCandidateInit) => {
     try {
-      const peer = peersRef.current.get(peerId);
-      if (peer && peer.connection.remoteDescription) {
-        await peer.connection.addIceCandidate(candidate);
-      }
+      console.log(`got ice candidate from ${id}`, candidate);
+
+      if (!candidate) return;
+
+      const pc = peers[id];
+      if (!pc) return;
+
+      await pc.addIceCandidate(candidate);
     } catch (error) {
       console.error('Failed to handle ICE candidate:', error);
     }
@@ -248,32 +262,22 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
     }
   }, []);
 
-  // Disconnect from a specific peer
-  const disconnectPeer = useCallback((peerId: string) => {
-    const peer = peersRef.current.get(peerId);
-    if (peer) {
-      peer.connection.close();
-      setPeers(prev => {
-        const newPeers = new Map(prev);
-        newPeers.delete(peerId);
-        return newPeers;
-      });
-    }
-  }, []);
-
-  // Disconnect from all peers
+  // NRTC Pattern: Disconnect all peers
   const disconnectAll = useCallback(() => {
-    peersRef.current.forEach((peer) => {
-      peer.connection.close();
+    Object.keys(peers).forEach((id) => {
+      removeRTCPeerConnection(id);
     });
-    setPeers(new Map());
-  }, []);
+  }, [removeRTCPeerConnection]);
 
   // Cleanup
   const cleanup = useCallback(() => {
     // Close all peer connections
-    peersRef.current.forEach((peer) => {
-      peer.connection.close();
+    Object.keys(peers).forEach((id) => {
+      const pc = peers[id];
+      if (pc) {
+        pc.close();
+        delete peers[id];
+      }
     });
     
     // Stop local media stream
@@ -281,7 +285,15 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
     }
     
-    setPeers(new Map());
+    // Clear remote stream
+    if (remoteStream) {
+      remoteStream.getTracks().forEach(track => {
+        remoteStream!.removeTrack(track);
+        track.stop();
+      });
+    }
+    
+    setUsers([]);
     setLocalStream(null);
     setIsAudioEnabled(true);
     setIsVideoEnabled(false);
@@ -293,23 +305,26 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
   }, [cleanup]);
 
   return {
-    // State
-    peers,
+    // State (NRTC pattern)
+    users, // List of peer IDs for UI
     localStream,
-    isConnecting: _isConnecting,
     isAudioEnabled,
     isVideoEnabled,
 
-    // Methods
+    // NRTC Methods
     initializeMedia,
-    createOffer,
-    handleOffer,
-    handleAnswer,
-    handleIceCandidate,
+    initRTCPeerConnection,
+    onRTCOffer,
+    onRTCAnswer,
+    onRTCIceCandidate,
+    removeRTCPeerConnection,
     toggleAudio,
     toggleVideo,
-    disconnectPeer,
     disconnectAll,
     cleanup,
+
+    // Direct access to peers object for compatibility
+    getPeer: (id: string) => peers[id],
+    getAllPeers: () => ({ ...peers }),
   };
 }

@@ -40,15 +40,15 @@ export function AudioRoom() {
   const animationFrameRef = useRef<number | null>(null);
 
   const {
-    peers,
+    users,
     localStream,
     isAudioEnabled,
     isVideoEnabled,
     initializeMedia,
-    createOffer,
-    handleOffer,
-    handleAnswer,
-    handleIceCandidate,
+    initRTCPeerConnection,
+    onRTCOffer,
+    onRTCAnswer,
+    onRTCIceCandidate,
     toggleAudio,
     toggleVideo,
     disconnectAll,
@@ -163,7 +163,9 @@ export function AudioRoom() {
           
           // NRTC pattern: Existing users always initiate to new users
           // This prevents race conditions when multiple people join simultaneously
-          const offer = await createOffer(event.pubkey);
+          const offer = await initRTCPeerConnection(event.pubkey, (candidate: RTCIceCandidate) => {
+            publishIceCandidate(candidate, event.pubkey, roomId);
+          });
           if (offer) {
             await publishOffer(offer, event.pubkey, roomId);
             console.log(`Sent offer to ${event.pubkey.substring(0, 8)}...`);
@@ -177,10 +179,12 @@ export function AudioRoom() {
     const handleOfferEvent = async (event: WebRTCSignalingEvent) => {
       if (event.roomId === roomId && event.pubkey !== user.pubkey && event.content) {
         try {
-          const content = event.content as { offer: string };
-          const answer = await handleOffer(event.pubkey, {
+          const content = event.content as { sdp: string };
+          const answer = await onRTCOffer(event.pubkey, {
             type: 'offer',
-            sdp: content.offer
+            sdp: content.sdp
+          }, (candidate: RTCIceCandidate) => {
+            publishIceCandidate(candidate, event.pubkey, roomId);
           });
           if (answer) {
             await publishAnswer(answer, event.pubkey, roomId);
@@ -195,7 +199,7 @@ export function AudioRoom() {
       if (event.roomId === roomId && event.pubkey !== user.pubkey && event.content) {
         try {
           const content = event.content as { sdp: string };
-          await handleAnswer(event.pubkey, {
+          await onRTCAnswer(event.pubkey, {
             type: 'answer',
             sdp: content.sdp
           });
@@ -213,7 +217,7 @@ export function AudioRoom() {
             sdpMid: string; 
             sdpMLineIndex: number;
           };
-          await handleIceCandidate(event.pubkey, {
+          await onRTCIceCandidate(event.pubkey, {
             candidate: content.candidate,
             sdpMid: content.sdpMid,
             sdpMLineIndex: content.sdpMLineIndex,
@@ -240,10 +244,10 @@ export function AudioRoom() {
     user,
     roomId,
     isJoined,
-    createOffer,
-    handleOffer,
-    handleAnswer,
-    handleIceCandidate,
+    initRTCPeerConnection,
+    onRTCOffer,
+    onRTCAnswer,
+    onRTCIceCandidate,
     publishOffer,
     publishAnswer,
     publishIceCandidate,
@@ -251,22 +255,7 @@ export function AudioRoom() {
     unregisterEventHandler,
   ]);
 
-  // Set up ICE candidate handling for peers
-  useEffect(() => {
-    peers.forEach(peer => {
-      if (!peer.connection.onicecandidate) {
-        peer.connection.onicecandidate = async (event) => {
-          if (event.candidate && user) {
-            try {
-              await publishIceCandidate(event.candidate, peer.id, roomId);
-            } catch (error) {
-              console.error('Failed to publish ICE candidate:', error);
-            }
-          }
-        };
-      }
-    });
-  }, [peers, publishIceCandidate, roomId, user]);
+  // ICE candidate handling is now done directly in the NRTC methods
 
   // Audio level monitoring
   useEffect(() => {
@@ -350,7 +339,7 @@ export function AudioRoom() {
                 <CardTitle className="text-xl">{roomName}</CardTitle>
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-muted-foreground">
-                    {isJoined ? peers.size + 1 : (availableRooms.get(roomId)?.participants.length || 0)} participant{isJoined ? (peers.size === 0 ? '' : 's') : ((availableRooms.get(roomId)?.participants.length || 0) === 1 ? '' : 's')}
+                    {isJoined ? users.length + 1 : (availableRooms.get(roomId)?.participants.length || 0)} participant{isJoined ? (users.length === 0 ? '' : 's') : ((availableRooms.get(roomId)?.participants.length || 0) === 1 ? '' : 's')}
                   </p>
                   {isModerator() && (
                     <Badge variant="outline" className="text-xs">
@@ -459,7 +448,7 @@ export function AudioRoom() {
                 />
 
                 {/* Remote participants */}
-                {Array.from(peers.keys()).map(peerId => (
+                {users.map(peerId => (
                   <ParticipantCard
                     key={peerId}
                     pubkey={peerId}
@@ -467,7 +456,6 @@ export function AudioRoom() {
                     isSpeaking={false} // TODO: Implement remote speaking detection
                     isMuted={false}
                     hasVideo={false}
-                    remoteStream={peers.get(peerId)?.remoteStream}
                     onKick={kickUser}
                     onBan={banUser}
                     canModerate={isModerator()}
@@ -489,7 +477,6 @@ interface ParticipantCardProps {
   isSpeaking: boolean;
   isMuted: boolean;
   hasVideo: boolean;
-  remoteStream?: MediaStream;
   onKick?: (pubkey: string) => void;
   onBan?: (pubkey: string) => void;
   canModerate?: boolean;
@@ -501,24 +488,14 @@ function ParticipantCard({
   isSpeaking,
   isMuted,
   hasVideo,
-  remoteStream,
   onKick,
   onBan,
   canModerate = false,
 }: ParticipantCardProps) {
   const author = useAuthor(pubkey);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   const displayName = author.data?.metadata?.name || genUserName(pubkey);
   const avatar = author.data?.metadata?.picture;
-
-  // Play remote audio
-  useEffect(() => {
-    if (remoteStream && audioRef.current && !isLocal) {
-      audioRef.current.srcObject = remoteStream;
-      audioRef.current.play().catch(console.error);
-    }
-  }, [remoteStream, isLocal]);
 
   return (
     <div className={`flex items-center gap-3 p-3 rounded-lg border ${isSpeaking ? 'border-primary bg-primary/5' : ''}`}>
@@ -577,10 +554,7 @@ function ParticipantCard({
         </div>
       )}
 
-      {/* Hidden audio element for remote streams */}
-      {!isLocal && (
-        <audio ref={audioRef} autoPlay playsInline />
-      )}
+      {/* Audio is now handled by global stream */}
     </div>
   );
 }
