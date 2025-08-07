@@ -1,7 +1,7 @@
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import type { NostrEvent } from '@nostrify/nostrify';
-import { wavlakeAPI, type WavlakeTrack } from '@/lib/wavlake';
+import { wavlakeAPI } from '@/lib/wavlake';
 
 // Peachy's pubkey
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -221,58 +221,108 @@ export function useMusicLists() {
   });
 }
 
-// Hook to get Peachy's Weekly Wavlake Picks (fetch from Wavlake API)
+// Hook to get Peachy's Weekly Wavlake Picks (from custom Nostr event)
 export function useWavlakePicks() {
-  return useQuery({
-    queryKey: ['wavlake-picks'],
-    queryFn: async () => {
-      // Fetch trending tracks from Wavlake as "picks"
-      const tracks = await wavlakeAPI.getRankings({
-        sort: 'sats',
-        days: 7,
-        limit: 10,
-      });
+  const { nostr } = useNostr();
 
-      // Convert WavlakeTrack to MusicTrack format
-      const musicTracks: MusicTrack[] = tracks.map((track: WavlakeTrack) => ({
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.albumTitle,
-        duration: track.duration,
-        image: track.albumArtUrl || track.artistArtUrl,
-        mediaUrl: track.mediaUrl,
-        albumArtUrl: track.albumArtUrl,
-        artistArtUrl: track.artistArtUrl,
-        artistId: track.artistId,
-        albumId: track.albumId,
-        artistNpub: track.artistNpub,
-        msatTotal: track.msatTotal,
-        releaseDate: track.releaseDate,
-        description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
-        publishedAt: new Date(track.releaseDate).getTime() / 1000,
-        urls: [{
-          url: track.mediaUrl,
-          mimeType: 'audio/mpeg',
-          quality: 'stream'
-        }],
-        createdAt: Math.floor(Date.now() / 1000), // Current timestamp
-        pubkey: track.artistNpub,
-      }));
+  return useQuery({
+    queryKey: ['wavlake-picks', PEACHY_PUBKEY],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      
+      // Query for Peachy's custom wavlake-picks list
+      const events = await nostr.query([
+        {
+          kinds: [30004], // NIP-51 Curation sets
+          authors: [PEACHY_PUBKEY],
+          '#d': ['wavlake-picks'],
+          limit: 1,
+        }
+      ], { signal });
+
+      if (events.length === 0) {
+        return null; // No picks list found
+      }
+
+      // Get the most recent picks event
+      const picksEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+      
+      // Extract track IDs from the event tags
+      const trackIds = picksEvent.tags
+        .filter(([tag]) => tag === 'r') // r tags contain the track URLs/IDs
+        .map(([, value]) => value)
+        .filter(Boolean);
+
+      if (trackIds.length === 0) {
+        return {
+          id: picksEvent.id,
+          pubkey: PEACHY_PUBKEY,
+          dTag: 'wavlake-picks',
+          title: picksEvent.tags.find(([tag]) => tag === 'title')?.[1] || "Peachy's Weekly Wavlake Picks",
+          description: picksEvent.tags.find(([tag]) => tag === 'description')?.[1] || 'Curated Bitcoin music tracks from Wavlake',
+          image: picksEvent.tags.find(([tag]) => tag === 'image')?.[1],
+          tracks: [],
+          createdAt: picksEvent.created_at,
+          updatedAt: picksEvent.created_at,
+        };
+      }
+
+      // Fetch track details from Wavlake API for each track ID
+      const musicTracks: MusicTrack[] = [];
+      
+      for (const trackId of trackIds) {
+        try {
+          // Extract track ID from Wavlake URL if needed
+          const actualTrackId = trackId.includes('wavlake.com') 
+            ? trackId.split('/').pop()?.split('?')[0] 
+            : trackId;
+            
+          if (actualTrackId) {
+            const track = await wavlakeAPI.getTrack(actualTrackId);
+            musicTracks.push({
+              id: track.id,
+              title: track.title,
+              artist: track.artist,
+              album: track.albumTitle,
+              duration: track.duration,
+              image: track.albumArtUrl || track.artistArtUrl,
+              mediaUrl: track.mediaUrl,
+              albumArtUrl: track.albumArtUrl,
+              artistArtUrl: track.artistArtUrl,
+              artistId: track.artistId,
+              albumId: track.albumId,
+              artistNpub: track.artistNpub,
+              msatTotal: track.msatTotal,
+              releaseDate: track.releaseDate,
+              description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
+              publishedAt: new Date(track.releaseDate).getTime() / 1000,
+              urls: [{
+                url: track.mediaUrl,
+                mimeType: 'audio/mpeg',
+                quality: 'stream'
+              }],
+              createdAt: Math.floor(Date.now() / 1000),
+              pubkey: track.artistNpub,
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to fetch track ${trackId}:`, error);
+        }
+      }
 
       return {
-        id: 'wavlake-weekly-picks',
+        id: picksEvent.id,
         pubkey: PEACHY_PUBKEY,
-        dTag: 'wavlake-weekly-picks',
-        title: "Peachy's Weekly Wavlake Picks",
-        description: 'Top trending Bitcoin music tracks from Wavlake',
-        image: musicTracks[0]?.image, // Use first track's image as playlist image
+        dTag: 'wavlake-picks',
+        title: picksEvent.tags.find(([tag]) => tag === 'title')?.[1] || "Peachy's Weekly Wavlake Picks",
+        description: picksEvent.tags.find(([tag]) => tag === 'description')?.[1] || 'Curated Bitcoin music tracks from Wavlake',
+        image: picksEvent.tags.find(([tag]) => tag === 'image')?.[1] || musicTracks[0]?.image,
         tracks: musicTracks,
-        createdAt: Math.floor(Date.now() / 1000),
-        updatedAt: Math.floor(Date.now() / 1000),
+        createdAt: picksEvent.created_at,
+        updatedAt: picksEvent.created_at,
       };
     },
-    staleTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes - shorter since this is custom curated content
   });
 }
 

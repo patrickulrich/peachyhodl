@@ -19,10 +19,11 @@ interface MusicPlayerProps {
   track: MusicTrack;
   onNext?: () => void;
   onPrevious?: () => void;
+  autoPlay?: boolean;
   className?: string;
 }
 
-export function MusicPlayer({ track, onNext, onPrevious, className }: MusicPlayerProps) {
+export function MusicPlayer({ track, onNext, onPrevious, autoPlay = false, className }: MusicPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -73,6 +74,26 @@ export function MusicPlayer({ track, onNext, onPrevious, className }: MusicPlaye
       audio.removeEventListener('ended', handleEnded);
     };
   }, [onNext]);
+
+  // Auto-play when track changes (if autoPlay is enabled)
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !autoPlay || !playbackUrl) return;
+
+    const playAudio = async () => {
+      try {
+        await audio.play();
+        setIsPlaying(true);
+      } catch (error) {
+        console.error('Auto-play failed:', error);
+        // Auto-play might be blocked by browser policy
+      }
+    };
+
+    // Wait a brief moment for the audio to load
+    const timer = setTimeout(playAudio, 100);
+    return () => clearTimeout(timer);
+  }, [track.id, autoPlay, playbackUrl]);
 
   // Play/pause toggle
   const togglePlayPause = async () => {
