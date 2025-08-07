@@ -46,7 +46,8 @@ export async function addTrackToPicksSimple(
     // Add new track reference to existing ones
     const allTrackRefs = [...existingTrackRefs, ['r', track.id]];
 
-    await publishEvent({
+    // Publish to Nostr
+    const publishedEvent = await publishEvent({
       kind: 30004, // NIP-51 Curation Set
       content: 'Curated Bitcoin music tracks from Wavlake',
       tags: [
@@ -57,16 +58,20 @@ export async function addTrackToPicksSimple(
       ],
     });
 
+    // Only show success toast if not called from optimistic update context
     toast({
       title: 'Track Added to Picks',
       description: `Added "${track.title}" by ${track.artist} to your weekly picks.`,
     });
 
-    // Invalidate picks query to refresh
-    await queryClient.invalidateQueries({
-      queryKey: ['wavlake-picks', '0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820']
-    });
+    // Wait a moment before invalidating to ensure the event has propagated
+    setTimeout(() => {
+      queryClient.invalidateQueries({
+        queryKey: ['wavlake-picks', '0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820']
+      });
+    }, 500);
 
+    console.log('Successfully published track to picks:', publishedEvent.id);
     return true;
   } catch (error) {
     console.error('Failed to add track to picks:', error);

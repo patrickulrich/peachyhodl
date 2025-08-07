@@ -189,13 +189,35 @@ export default function WavlakeExplore() {
         description: `Added "${track.title}" by ${track.artist} to your weekly picks.`,
       });
 
-      // Then publish to Nostr in the background (don't show duplicate toasts)
+      // Then publish to Nostr in the background
       const { addTrackToPicksSimple } = await import('@/lib/addTrackToPicks');
       try {
-        await addTrackToPicksSimple(track, publishEvent, () => {}, queryClient); // Empty toast function to prevent duplicates
+        const success = await addTrackToPicksSimple(track, publishEvent, (options) => {
+          // Only show error toasts, not success toasts (to prevent duplicates)
+          if (options.variant === 'destructive') {
+            toast(options);
+          }
+        }, queryClient);
+        
+        if (!success) {
+          // If addTrackToPicksSimple returned false, revert the optimistic update
+          queryClient.invalidateQueries({
+            queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+          });
+        }
       } catch (publishError) {
-        // If the Nostr publish fails, we still keep the optimistic update since the user sees it as added
-        console.warn('Failed to publish to Nostr, but keeping optimistic update:', publishError);
+        console.warn('Failed to publish to Nostr:', publishError);
+        
+        // Revert the optimistic update on publish failure
+        queryClient.invalidateQueries({
+          queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+        });
+        
+        toast({
+          title: 'Failed to Save to Nostr',
+          description: 'Track was added locally but could not be saved to Nostr.',
+          variant: 'destructive',
+        });
       }
 
     } catch (error) {
