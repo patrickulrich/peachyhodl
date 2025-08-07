@@ -1,0 +1,16 @@
+{
+  "name": "Peachy - Bitcoin is the future and it's just peachy",
+  "short_name": "Peachy",
+  "description": "Join Peachy for Bitcoin content, live streams, and community on Nostr.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#f4a6cd",
+  "background_color": "#fefbfb",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

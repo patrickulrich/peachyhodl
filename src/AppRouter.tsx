@@ -2,6 +2,12 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 import Index from "./pages/Index";
+import Photos from "./pages/Photos";
+import About from "./pages/About";
+import AudioRooms from "./pages/AudioRooms";
+import Events from "./pages/Events";
+import WavlakePics from "./pages/WavlakePics";
+import Blog from "./pages/Blog";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
@@ -11,6 +17,12 @@ export function AppRouter() {
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Index />} />
+        <Route path="/photos" element={<Photos />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/audio-rooms" element={<AudioRooms />} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/wavlake-pics" element={<WavlakePics />} />
+        <Route path="/blog" element={<Blog />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
         <Route path="/:nip19" element={<NIP19Page />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

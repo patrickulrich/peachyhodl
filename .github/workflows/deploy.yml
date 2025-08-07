@@ -27,6 +27,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    env:
+      # Set base path based on repository name
+      # For user/org pages (username.github.io), use '/'
+      # For project pages, use '/repository-name/'
+      VITE_BASE_PATH: ${{ github.event.repository.name == 'patrickulrich.github.io' && '/' || format('/{0}/', github.event.repository.name) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,11 +42,42 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Debug environment
+        run: |
+          echo "🔍 Repository: ${{ github.repository }}"
+          echo "🔍 Repository name: ${{ github.event.repository.name }}"
+          echo "🔍 VITE_BASE_PATH: ${{ env.VITE_BASE_PATH }}"
+          echo "🔍 Node version: $(node --version)"
+          echo "🔍 npm version: $(npm --version)"
+
       - name: Install dependencies and build
         run: |
           npm install
+          echo "🏗️ Building site with base path: ${{ env.VITE_BASE_PATH }}"
           npm run build
-          cp dist/index.html dist/404.html
+
+      - name: Run tests
+        run: npm test
+
+      - name: Debug build output
+        run: |
+          echo "📁 Project root contents:"
+          ls -la
+          echo ""
+          echo "📁 Dist folder contents:"
+          if [ -d "dist" ]; then
+            ls -la dist/
+            echo ""
+            echo "📁 Dist/assets folder:"
+            if [ -d "dist/assets" ]; then
+              ls -la dist/assets/ | head -20
+            else
+              echo "❌ dist/assets/ not found"
+            fi
+          else
+            echo "❌ dist/ directory not found!"
+            exit 1
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

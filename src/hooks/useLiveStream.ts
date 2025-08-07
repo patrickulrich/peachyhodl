@@ -1,0 +1,87 @@
+import { useQuery } from "@tanstack/react-query";
+import { useNostr } from "@nostrify/react";
+import type { NostrEvent } from "@nostrify/nostrify";
+
+// Peachy's vanity npub decoded to hex
+// npub1peachy0e223un984r54xnu9k93mcjk92mp27zrl03qfmcwpwmqsqt2agsv
+const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
+
+interface LiveStreamData {
+  event: NostrEvent | null;
+  isLive: boolean;
+  streamUrl: string | null;
+  title: string | null;
+  summary: string | null;
+  image: string | null;
+  participants: Array<{
+    pubkey: string;
+    role: string;
+  }>;
+}
+
+export function useLiveStream() {
+  const { nostr } = useNostr();
+
+  return useQuery({
+    queryKey: ["livestream", PEACHY_PUBKEY],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      
+      // Query for Peachy's live events (kind: 30311)
+      const events = await nostr.query(
+        [
+          {
+            kinds: [30311],
+            authors: [PEACHY_PUBKEY],
+            limit: 10,
+          },
+        ],
+        { signal }
+      );
+
+      // Find the most recent live event
+      const liveEvent = events
+        .sort((a, b) => b.created_at - a.created_at)
+        .find((event) => {
+          const statusTag = event.tags.find(([tag]) => tag === "status");
+          return statusTag && statusTag[1] === "live";
+        });
+
+      if (!liveEvent) {
+        return {
+          event: null,
+          isLive: false,
+          streamUrl: null,
+          title: null,
+          summary: null,
+          image: null,
+          participants: [],
+        } as LiveStreamData;
+      }
+
+      // Extract data from the live event
+      const getTagValue = (tagName: string): string | null => {
+        const tag = liveEvent.tags.find(([name]) => name === tagName);
+        return tag ? tag[1] : null;
+      };
+
+      const participants = liveEvent.tags
+        .filter(([tag]) => tag === "p")
+        .map(([_, pubkey, __, role = "Participant"]) => ({
+          pubkey,
+          role,
+        }));
+
+      return {
+        event: liveEvent,
+        isLive: true,
+        streamUrl: getTagValue("streaming"),
+        title: getTagValue("title"),
+        summary: getTagValue("summary"),
+        image: getTagValue("image"),
+        participants,
+      } as LiveStreamData;
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds to check if still live
+  });
+}
