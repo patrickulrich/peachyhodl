@@ -9,6 +9,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/useToast';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNostr } from '@nostrify/react';
+import type { NostrEvent } from '@nostrify/nostrify';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Settings, Search, Plus, Trash2, ExternalLink, Music } from 'lucide-react';
@@ -16,6 +19,63 @@ import type { MusicTrack, MusicList } from '@/hooks/useMusicLists';
 
 // Peachy's pubkey
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
+
+// Parse Wavlake-style music track (kind 32123 with NOM spec in content)
+function parseMusicTrack(event: NostrEvent): MusicTrack | null {
+  // Only handle Wavlake's kind 32123 events
+  if (event.kind !== 32123) return null;
+
+  try {
+    // Parse the NOM (Nostr Open Media) spec from content field
+    const nomData = JSON.parse(event.content);
+    
+    // Extract data from NOM spec
+    const title = nomData.title;
+    const artist = nomData.creator;
+    const duration = nomData.duration;
+    const publishedAt = nomData.published_at ? parseInt(nomData.published_at) : undefined;
+    const enclosureUrl = nomData.enclosure; // The actual media file URL
+    const mimeType = nomData.type;
+
+    // Build URLs array
+    const urls: Array<{ url: string; mimeType?: string; quality?: string; }> = [];
+    
+    if (enclosureUrl) {
+      urls.push({ 
+        url: enclosureUrl, 
+        mimeType: mimeType || 'audio/mpeg', 
+        quality: 'stream' 
+      });
+    }
+
+    // If no media URL found, skip this track
+    if (urls.length === 0) return null;
+
+    // Look for additional metadata in tags (fallback)
+    const album = event.tags.find(([tag]: [string]) => tag === 'album')?.[1];
+    const genre = event.tags.find(([tag]: [string]) => tag === 'genre')?.[1];
+    const image = event.tags.find(([tag]: [string]) => tag === 'image')?.[1];
+
+    return {
+      id: event.id,
+      title: title || 'Untitled',
+      artist: artist || 'Unknown Artist',
+      album,
+      duration,
+      genre,
+      urls,
+      image,
+      waveform: undefined,
+      description: nomData.guid || undefined,
+      publishedAt,
+      createdAt: event.created_at,
+      pubkey: event.pubkey,
+    };
+  } catch (error) {
+    console.error('Failed to parse music track event:', error);
+    return null;
+  }
+}
 
 interface ManagePicksDialogProps {
   children: React.ReactNode;
@@ -39,8 +99,10 @@ export function ManagePicksDialog({
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { mutateAsync: publishEvent } = useNostrPublish();
+  const queryClient = useQueryClient();
+  const { nostr } = useNostr();
 
-  // Search Wavlake API for tracks
+  // Search for music tracks on Nostr
   const searchWavlakeTracks = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -49,52 +111,50 @@ export function ManagePicksDialog({
 
     setIsLoading(true);
     try {
-      // Mock search results - in reality, this would call Wavlake API
-      // For now, we'll create some example tracks that could be found
-      const mockResults: MusicTrack[] = [
-        {
-          id: `search-${Date.now()}-1`,
-          title: `Track matching "${query}"`,
-          artist: 'Example Artist',
-          album: 'Example Album',
-          duration: 180,
-          genre: 'Bitcoin Music',
-          urls: [{ url: 'https://wavlake.com/track/example1.mp3' }],
-          createdAt: Date.now(),
-          pubkey: PEACHY_PUBKEY,
-        },
-        {
-          id: `search-${Date.now()}-2`,
-          title: `Another "${query}" song`,
-          artist: 'Bitcoin Musician',
-          album: 'Lightning Album',
-          duration: 240,
-          genre: 'Electronic',
-          urls: [{ url: 'https://wavlake.com/track/example2.mp3' }],
-          createdAt: Date.now(),
-          pubkey: PEACHY_PUBKEY,
-        },
-      ];
+      const signal = AbortSignal.timeout(5000);
       
-      setSearchResults(mockResults);
+      // Search for kind 32123 music events that match the query
+      const musicEvents = await nostr.query([{
+        kinds: [32123],
+        limit: 50,
+        since: Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60), // Last 30 days
+      }], { signal });
+
+      // Parse and filter tracks that match the search query
+      const allTracks = musicEvents
+        .map(parseMusicTrack)
+        .filter((track): track is MusicTrack => track !== null);
+
+      // Filter tracks by search query (case insensitive)
+      const filteredTracks = allTracks.filter(track => {
+        const searchLower = query.toLowerCase();
+        return (
+          track.title?.toLowerCase().includes(searchLower) ||
+          track.artist?.toLowerCase().includes(searchLower) ||
+          track.album?.toLowerCase().includes(searchLower) ||
+          track.genre?.toLowerCase().includes(searchLower)
+        );
+      });
+
+      setSearchResults(filteredTracks.slice(0, 20)); // Limit to 20 results
       
       toast({
         title: 'Search Complete',
-        description: `Found ${mockResults.length} tracks matching "${query}"`
+        description: `Found ${filteredTracks.length} tracks matching "${query}"`
       });
       
     } catch (error) {
       console.error('Search failed:', error);
       toast({
         title: 'Search Failed',
-        description: 'Could not search Wavlake tracks. Please try again.',
+        description: 'Could not search Nostr music tracks. Please try again.',
         variant: 'destructive',
       });
       setSearchResults([]);
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, nostr]);
 
   // Add track to the list
   const addTrackToList = useCallback(async (track: MusicTrack) => {
@@ -114,28 +174,24 @@ export function ManagePicksDialog({
         return;
       }
 
-      // Create updated track list - use the first URL from the track
-      const trackUrl = track.urls[0]?.url;
-      if (!trackUrl) {
-        toast({
-          title: 'Invalid Track',
-          description: 'This track has no playable URL.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      const updatedTracks = [...(currentList?.tracks || []), trackUrl];
+      // Create updated track list - reference the actual music event
+      // We need to find the kind 1 event that references this kind 32123 track
+      // For now, we'll reference the track event ID directly
+      const updatedTracks = [...(currentList?.tracks || []), track.id];
 
-      // Publish updated NIP-51 list event
+      // Publish updated NIP-51 curation set (kind 30004)
       await publishEvent({
-        kind: 30001, // NIP-51 Music list
+        kind: 30004, // NIP-51 Curation Set
         content: currentList?.description || 'Peachy\'s curated Bitcoin music picks from Wavlake',
         tags: [
-          ['d', 'peachy-wavlake-picks'], // Identifier for the list
+          ['d', 'wavlake-picks'], // Identifier for the list (matches useWavlakePicks query)
           ['title', 'Peachy\'s Weekly Wavlake Picks'],
           ['description', currentList?.description || 'Peachy\'s curated Bitcoin music picks from Wavlake'],
-          ...updatedTracks.map(url => ['r', url]), // Music URLs
-          ['image', currentList?.image || ''], // Optional cover image
+          ...updatedTracks.map(trackRef => {
+            // If it looks like an event ID, use e tag, otherwise r tag for URLs
+            return trackRef.startsWith('http') ? ['r', trackRef] : ['e', trackRef];
+          }),
+          ...(currentList?.image ? [['image', currentList.image]] : []),
         ],
       });
 
@@ -144,6 +200,11 @@ export function ManagePicksDialog({
         description: `Added "${track.title}" by ${track.artist} to your Wavlake picks.`,
       });
 
+      // Invalidate relevant queries to refresh the data
+      await queryClient.invalidateQueries({
+        queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+      });
+      
       onListUpdated?.();
       
     } catch (error) {
@@ -156,7 +217,7 @@ export function ManagePicksDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [user, currentList, currentTracks, publishEvent, toast, onListUpdated]);
+  }, [user, currentList, currentTracks, publishEvent, toast, onListUpdated, queryClient]);
 
   // Remove track from the list
   const removeTrackFromList = useCallback(async (track: MusicTrack) => {
@@ -166,19 +227,21 @@ export function ManagePicksDialog({
       setIsLoading(true);
 
       // Create updated track list without this track
-      const trackUrl = track.urls[0]?.url;
-      const updatedTracks = (currentList?.tracks || []).filter(url => url !== trackUrl);
+      const updatedTracks = (currentList?.tracks || []).filter(trackRef => trackRef !== track.id);
 
-      // Publish updated NIP-51 list event
+      // Publish updated NIP-51 curation set (kind 30004)
       await publishEvent({
-        kind: 30001, // NIP-51 Music list
+        kind: 30004, // NIP-51 Curation Set
         content: currentList?.description || 'Peachy\'s curated Bitcoin music picks from Wavlake',
         tags: [
-          ['d', 'peachy-wavlake-picks'], // Identifier for the list
+          ['d', 'wavlake-picks'], // Identifier for the list (matches useWavlakePicks query)
           ['title', 'Peachy\'s Weekly Wavlake Picks'],
           ['description', currentList?.description || 'Peachy\'s curated Bitcoin music picks from Wavlake'],
-          ...updatedTracks.map(url => ['r', url]), // Music URLs
-          ['image', currentList?.image || ''], // Optional cover image
+          ...updatedTracks.map(trackRef => {
+            // If it looks like an event ID, use e tag, otherwise r tag for URLs
+            return trackRef.startsWith('http') ? ['r', trackRef] : ['e', trackRef];
+          }),
+          ...(currentList?.image ? [['image', currentList.image]] : []),
         ],
       });
 
@@ -187,6 +250,11 @@ export function ManagePicksDialog({
         description: `Removed "${track.title}" by ${track.artist} from your Wavlake picks.`,
       });
 
+      // Invalidate relevant queries to refresh the data
+      await queryClient.invalidateQueries({
+        queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+      });
+      
       onListUpdated?.();
       
     } catch (error) {
@@ -199,7 +267,7 @@ export function ManagePicksDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [user, currentList, publishEvent, toast, onListUpdated]);
+  }, [user, currentList, publishEvent, toast, onListUpdated, queryClient]);
 
   // Add track by URL
   const addTrackByUrl = useCallback(async (url: string) => {
@@ -222,16 +290,16 @@ export function ManagePicksDialog({
       // Create updated track list
       const updatedTracks = [...(currentList?.tracks || []), url];
 
-      // Publish updated NIP-51 list event
+      // Publish updated NIP-51 curation set (kind 30004)
       await publishEvent({
-        kind: 30001, // NIP-51 Music list
+        kind: 30004, // NIP-51 Curation Set
         content: currentList?.description || 'Peachy\'s curated Bitcoin music picks from Wavlake',
         tags: [
-          ['d', 'peachy-wavlake-picks'], // Identifier for the list
+          ['d', 'wavlake-picks'], // Identifier for the list (matches useWavlakePicks query)
           ['title', 'Peachy\'s Weekly Wavlake Picks'],
           ['description', currentList?.description || 'Peachy\'s curated Bitcoin music picks from Wavlake'],
-          ...updatedTracks.map(trackUrl => ['r', trackUrl]), // Music URLs
-          ['image', currentList?.image || ''], // Optional cover image
+          ...updatedTracks.map(trackUrl => ['r', trackUrl]), // URLs as r tags for now
+          ...(currentList?.image ? [['image', currentList.image]] : []),
         ],
       });
 
@@ -242,6 +310,11 @@ export function ManagePicksDialog({
         description: 'Successfully added track URL to your Wavlake picks.',
       });
 
+      // Invalidate relevant queries to refresh the data
+      await queryClient.invalidateQueries({
+        queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+      });
+      
       onListUpdated?.();
       
     } catch (error) {
@@ -254,7 +327,7 @@ export function ManagePicksDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [user, currentList, publishEvent, toast, onListUpdated]);
+  }, [user, currentList, publishEvent, toast, onListUpdated, queryClient]);
 
   const handleSearch = () => {
     searchWavlakeTracks(searchQuery);

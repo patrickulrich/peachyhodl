@@ -37,57 +37,63 @@ export interface MusicList {
   updatedAt: number;
 }
 
-// Parse Wavlake-style music track (kind 32123 or proposed kind 31337)
+// Parse Wavlake-style music track (kind 32123 with NOM spec in content)
 function parseMusicTrack(event: NostrEvent): MusicTrack | null {
-  // Support both Wavlake's current kind 32123 and proposed kind 31337
-  if (![32123, 31337].includes(event.kind)) return null;
+  // Only handle Wavlake's kind 32123 events
+  if (event.kind !== 32123) return null;
 
-  const title = event.tags.find(([tag]) => tag === 'title')?.[1];
-  const artist = event.tags.find(([tag]) => tag === 'artist')?.[1] || 
-                 event.tags.find(([tag]) => tag === 'creator')?.[1];
-  const album = event.tags.find(([tag]) => tag === 'album')?.[1];
-  const duration = event.tags.find(([tag]) => tag === 'duration')?.[1];
-  const genre = event.tags.find(([tag]) => tag === 'genre')?.[1];
-  const image = event.tags.find(([tag]) => tag === 'image')?.[1];
-  const waveform = event.tags.find(([tag]) => tag === 'waveform')?.[1];
-  const publishedAt = event.tags.find(([tag]) => tag === 'published_at')?.[1];
+  try {
+    // Parse the NOM (Nostr Open Media) spec from content field
+    const nomData = JSON.parse(event.content);
+    
+    // Extract data from NOM spec
+    const title = nomData.title;
+    const artist = nomData.creator;
+    const duration = nomData.duration;
+    const publishedAt = nomData.published_at ? parseInt(nomData.published_at) : undefined;
+    const enclosureUrl = nomData.enclosure; // The actual media file URL
+    const _linkUrl = nomData.link; // The hosting site URL (for future use)
+    const mimeType = nomData.type;
 
-  // Parse URLs - look for r tags (URLs) and streaming/download tags
-  const urls: Array<{ url: string; mimeType?: string; quality?: string; }> = [];
-  
-  // Standard r tags for URLs
-  event.tags
-    .filter(([tag]) => tag === 'r')
-    .forEach(([_tag, url, mimeType]) => {
-      if (url) {
-        urls.push({ url, mimeType });
-      }
-    });
+    // Build URLs array
+    const urls: Array<{ url: string; mimeType?: string; quality?: string; }> = [];
+    
+    if (enclosureUrl) {
+      urls.push({ 
+        url: enclosureUrl, 
+        mimeType: mimeType || 'audio/mpeg', 
+        quality: 'stream' 
+      });
+    }
 
-  // Wavlake-specific streaming URL
-  const streaming = event.tags.find(([tag]) => tag === 'streaming')?.[1];
-  if (streaming) {
-    urls.push({ url: streaming, mimeType: 'audio/mpeg', quality: 'stream' });
+    // If no media URL found, skip this track
+    if (urls.length === 0) return null;
+
+    // Look for additional metadata in tags (fallback)
+    const album = event.tags.find(([tag]) => tag === 'album')?.[1];
+    const genre = event.tags.find(([tag]) => tag === 'genre')?.[1];
+    const image = event.tags.find(([tag]) => tag === 'image')?.[1];
+    const waveform = event.tags.find(([tag]) => tag === 'waveform')?.[1];
+
+    return {
+      id: event.id,
+      title: title || 'Untitled',
+      artist: artist || 'Unknown Artist',
+      album,
+      duration,
+      genre,
+      urls,
+      image,
+      waveform,
+      description: nomData.guid || undefined, // Use GUID as description
+      publishedAt,
+      createdAt: event.created_at,
+      pubkey: event.pubkey,
+    };
+  } catch (error) {
+    console.error('Failed to parse music track event:', error);
+    return null;
   }
-
-  // If no URLs found, skip this track
-  if (urls.length === 0) return null;
-
-  return {
-    id: event.id,
-    title,
-    artist,
-    album,
-    duration: duration ? parseInt(duration) : undefined,
-    genre,
-    urls,
-    image,
-    waveform,
-    description: event.content || undefined,
-    publishedAt: publishedAt ? parseInt(publishedAt) : undefined,
-    createdAt: event.created_at,
-    pubkey: event.pubkey,
-  };
 }
 
 // Parse NIP-51 music list (using curation sets kind 30004 or custom music sets)
@@ -102,14 +108,19 @@ function parseMusicList(event: NostrEvent): MusicList | null {
   const description = event.tags.find(([tag]) => tag === 'description')?.[1];
   const image = event.tags.find(([tag]) => tag === 'image')?.[1];
 
-  // Extract track references from a and e tags
+  // Extract track references from a, e, and r tags
   const tracks: string[] = [];
   
   event.tags
-    .filter(([tag]) => tag === 'a' || tag === 'e')
+    .filter(([tag]) => tag === 'a' || tag === 'e' || tag === 'r')
     .forEach(([tag, value]) => {
       if (value) {
-        tracks.push(tag === 'a' ? value : `e:${value}`);
+        // Store URLs directly for r tags, prefix others for type identification
+        if (tag === 'r') {
+          tracks.push(value); // Direct URLs
+        } else {
+          tracks.push(tag === 'a' ? value : `e:${value}`);
+        }
       }
     });
 
@@ -248,47 +259,60 @@ export function useTracksFromList(trackRefs: string[]) {
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
       
-      // Separate event IDs and addressable events
+      // Filter out URLs and only process actual event references
       const eventIds: string[] = [];
       const addresses: string[] = [];
 
       trackRefs.forEach(ref => {
-        if (ref.startsWith('e:')) {
+        if (ref.startsWith('http')) {
+          // Skip URLs for now - these should be converted to event references
+          return;
+        } else if (ref.startsWith('e:')) {
           eventIds.push(ref.substring(2));
         } else if (ref.includes(':')) {
           addresses.push(ref);
+        } else {
+          // Assume direct event ID
+          eventIds.push(ref);
         }
       });
 
-      const queries: Array<{
-        ids?: string[];
-        kinds?: number[];
-        limit?: number;
-      }> = [];
+      if (eventIds.length === 0 && addresses.length === 0) return [];
 
-      // Query by event IDs
-      if (eventIds.length > 0) {
-        queries.push({
-          ids: eventIds,
-          kinds: [32123, 31337],
-        });
-      }
+      // First, get the kind 1 events that reference music
+      const kind1Events = eventIds.length > 0 ? await nostr.query([{
+        ids: eventIds,
+        kinds: [1],
+      }], { signal }) : [];
 
-      // Query by addresses (this is more complex, would need to parse addresses)
-      if (addresses.length > 0) {
-        // For now, just query all tracks and filter
-        queries.push({
-          kinds: [32123, 31337],
-          limit: 100,
-        });
-      }
+      // Extract a tags pointing to kind 32123 events
+      const musicEventRefs: string[] = [];
+      
+      kind1Events.forEach(event => {
+        event.tags
+          .filter(([tag, value]) => tag === 'a' && value?.includes('32123:'))
+          .forEach(([, value]) => {
+            if (value) musicEventRefs.push(value);
+          });
+      });
 
-      if (queries.length === 0) return [];
+      if (musicEventRefs.length === 0) return [];
 
-      const events = await nostr.query(queries, { signal });
+      // Parse addresses to get individual kind 32123 events
+      const musicQueries = musicEventRefs.map(ref => {
+        const [kind, pubkey, dTag] = ref.split(':');
+        return {
+          kinds: [parseInt(kind)],
+          authors: [pubkey],
+          '#d': [dTag],
+        };
+      });
 
-      // Parse tracks and filter by references
-      const tracks = events
+      // Get all the kind 32123 music events
+      const musicEvents = await nostr.query(musicQueries, { signal });
+
+      // Parse tracks and return
+      const tracks = musicEvents
         .map(parseMusicTrack)
         .filter((track): track is MusicTrack => track !== null);
 

@@ -68,11 +68,9 @@ const WavlakePicks = () => {
     setCurrentTrack(tracks[prevIndex]);
   };
 
-  // Refetch data when list is updated
+  // Data refresh is now handled by React Query invalidation in ManagePicksDialog
   const handleListUpdated = () => {
-    // Force refetch of the Wavlake picks list
-    // This will be handled by React Query's cache invalidation
-    window.location.reload(); // Simple approach for now
+    // No need to do anything here - the ManagePicksDialog handles cache invalidation
   };
 
   const formatDate = (timestamp: number) => {
