@@ -44,7 +44,7 @@ export function ManagePicksDialog({
   const [orderedTracks, setOrderedTracks] = useState<MusicTrack[]>([]);
   
   // Discovery filters
-  const [selectedGenre, setSelectedGenre] = useState<string>('');
+  const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [selectedDays, setSelectedDays] = useState<number>(7);
   
   // Playlist import
@@ -64,7 +64,7 @@ export function ManagePicksDialog({
   const { data: trendingTracks = [], isLoading: isLoadingTrending, refetch: refetchTrending } = useWavlakeRankings({
     sort: 'sats',
     days: selectedDays,
-    genre: selectedGenre || undefined,
+    genre: selectedGenre === 'all' ? undefined : selectedGenre,
     limit: 50,
   });
 
@@ -458,7 +458,7 @@ export function ManagePicksDialog({
                       <SelectValue placeholder="All genres" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All genres</SelectItem>
+                      <SelectItem value="all">All genres</SelectItem>
                       {genres.map((genre) => (
                         <SelectItem key={genre} value={genre}>
                           {genre}
@@ -494,7 +494,7 @@ export function ManagePicksDialog({
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                       <TrendingUp className="h-5 w-5" />
                       Trending Tracks
-                      {selectedGenre && (
+                      {selectedGenre && selectedGenre !== 'all' && (
                         <Badge variant="secondary">{selectedGenre}</Badge>
                       )}
                     </h3>
