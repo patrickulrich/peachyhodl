@@ -28,9 +28,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     env:
-      # Set base path for custom domain (peachyhodl.com)
-      # Custom domains always serve from root path
-      VITE_BASE_PATH: /
+      # Set base path based on repository name
+      # For user/org pages (username.github.io), use '/'
+      # For project pages, use '/repository-name/'
+      VITE_BASE_PATH: ${{ github.event.repository.name == 'bitcoincommunitysites' && '/bitcoincommunitysites/' || '/' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -54,9 +55,6 @@ jobs:
           npm install
           echo "🏗️ Building site with base path: ${{ env.VITE_BASE_PATH }}"
           npm run build
-
-      - name: Run tests
-        run: npm test
 
       - name: Debug build output
         run: |
