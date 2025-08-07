@@ -255,16 +255,17 @@ const Index = () => {
           <div className="fixed bottom-4 left-4 right-4 z-50">
             <MusicPlayer
               track={currentTrack}
-              onNext={() => {
+              autoPlay={isPlaying}
+              onNext={featuredTracks.length > 1 ? () => {
                 const currentIndex = featuredTracks.findIndex(t => t.id === currentTrack.id);
                 const nextIndex = (currentIndex + 1) % featuredTracks.length;
                 setCurrentTrack(featuredTracks[nextIndex]);
-              }}
-              onPrevious={() => {
+              } : undefined}
+              onPrevious={featuredTracks.length > 1 ? () => {
                 const currentIndex = featuredTracks.findIndex(t => t.id === currentTrack.id);
                 const prevIndex = currentIndex === 0 ? featuredTracks.length - 1 : currentIndex - 1;
                 setCurrentTrack(featuredTracks[prevIndex]);
-              }}
+              } : undefined}
             />
           </div>
         )}
