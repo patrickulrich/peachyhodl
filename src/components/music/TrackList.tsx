@@ -170,7 +170,7 @@ export function TrackList({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <a
-                            href={track.urls[0]?.url}
+                            href={track.urls?.[0]?.url || track.mediaUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Open track"

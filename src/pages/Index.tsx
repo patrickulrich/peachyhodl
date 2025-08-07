@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FollowButton } from '@/components/FollowButton';
+import { MusicPlayer } from '@/components/music/MusicPlayer';
+import { WavlakeZapDialog } from '@/components/music/WavlakeZapDialog';
 import { LiveNextModal } from '@/components/livestream/LiveNextModal';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { usePictures } from '@/hooks/usePictures';
-import { useWavlakePicks, useTracksFromList } from '@/hooks/useMusicLists';
+import { useWavlakePicks } from '@/hooks/useMusicLists';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { Bitcoin, Sparkles, Music, Play, Pause, Zap } from 'lucide-react';
 
@@ -27,14 +29,12 @@ const Index = () => {
 
   const { data: liveStreamData } = useLiveStream();
   const { data: pictures = [], isLoading: isLoadingPictures } = usePictures(6);
-  const { data: wavlakeList, isLoading: isListLoading } = useWavlakePicks();
-  const { data: tracks = [], isLoading: isTracksLoading } = useTracksFromList(wavlakeList?.tracks || []);
+  const { data: wavlakeList, isLoading: isLoadingMusic } = useWavlakePicks();
   
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  const isLoadingMusic = isListLoading || isTracksLoading;
-  const featuredTracks = tracks.slice(0, 3);
+  const featuredTracks = wavlakeList?.tracks?.slice(0, 3) || [];
 
   const handleTrackPlay = (track: MusicTrack) => {
     if (currentTrack?.id === track.id) {
@@ -225,9 +225,11 @@ const Index = () => {
                               </>
                             )}
                           </Button>
-                          <Button size="sm" variant="outline" className="px-3">
-                            <Zap className="h-4 w-4" />
-                          </Button>
+                          <WavlakeZapDialog track={track}>
+                            <Button size="sm" variant="outline" className="px-3">
+                              <Zap className="h-4 w-4" />
+                            </Button>
+                          </WavlakeZapDialog>
                         </div>
                       </div>
                     </CardContent>
@@ -247,6 +249,25 @@ const Index = () => {
             </Card>
           )}
         </section>
+
+        {/* Music Player */}
+        {currentTrack && (
+          <div className="fixed bottom-4 left-4 right-4 z-50">
+            <MusicPlayer
+              track={currentTrack}
+              onNext={() => {
+                const currentIndex = featuredTracks.findIndex(t => t.id === currentTrack.id);
+                const nextIndex = (currentIndex + 1) % featuredTracks.length;
+                setCurrentTrack(featuredTracks[nextIndex]);
+              }}
+              onPrevious={() => {
+                const currentIndex = featuredTracks.findIndex(t => t.id === currentTrack.id);
+                const prevIndex = currentIndex === 0 ? featuredTracks.length - 1 : currentIndex - 1;
+                setCurrentTrack(featuredTracks[prevIndex]);
+              }}
+            />
+          </div>
+        )}
       </div>
     </MainLayout>
   );

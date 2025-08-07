@@ -1,31 +1,53 @@
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { wavlakeAPI, type WavlakeTrack } from '@/lib/wavlake';
 
 // Peachy's pubkey
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
 
 export interface MusicTrack {
   id: string;
-  title?: string;
-  artist?: string;
+  title: string;
+  artist: string;
   album?: string;
   duration?: number;
   genre?: string;
-  urls: Array<{
+  image?: string;
+  mediaUrl?: string;
+  albumArtUrl?: string;
+  artistArtUrl?: string;
+  artistId?: string;
+  albumId?: string;
+  artistNpub?: string;
+  msatTotal?: string;
+  releaseDate?: string;
+  description?: string;
+  publishedAt?: number;
+  waveform?: string;
+  urls?: Array<{
     url: string;
     mimeType?: string;
     quality?: string;
   }>;
-  image?: string;
-  waveform?: string;
-  description?: string;
-  publishedAt?: number;
   createdAt: number;
-  pubkey: string;
+  pubkey?: string;
 }
 
 export interface MusicList {
+  id: string;
+  pubkey: string;
+  dTag: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  tracks: MusicTrack[]; // Array of actual track objects for Wavlake
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Traditional Nostr music list with track references as strings
+export interface NostrMusicList {
   id: string;
   pubkey: string;
   dTag: string;
@@ -97,7 +119,7 @@ function parseMusicTrack(event: NostrEvent): MusicTrack | null {
 }
 
 // Parse NIP-51 music list (using curation sets kind 30004 or custom music sets)
-function parseMusicList(event: NostrEvent): MusicList | null {
+function parseMusicList(event: NostrEvent): NostrMusicList | null {
   // Support standard curation sets (30004) and potential music-specific sets
   if (![30004, 30005].includes(event.kind)) return null;
 
@@ -191,7 +213,7 @@ export function useMusicLists() {
       // Parse and filter valid lists
       const lists = events
         .map(parseMusicList)
-        .filter((list): list is MusicList => list !== null);
+        .filter((list): list is NostrMusicList => list !== null);
 
       // Sort by update time (newest first)
       return lists.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -199,156 +221,114 @@ export function useMusicLists() {
   });
 }
 
-// Hook to get Peachy's Weekly Wavlake Picks (look for specific list)
+// Hook to get Peachy's Weekly Wavlake Picks (fetch from Wavlake API)
 export function useWavlakePicks() {
-  const { nostr } = useNostr();
-
   return useQuery({
-    queryKey: ['wavlake-picks', PEACHY_PUBKEY],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
-      
-      // Look for a list with "wavlake" or "weekly" in the d-tag or title
-      const events = await nostr.query([
-        {
-          kinds: [30004, 30005],
-          authors: [PEACHY_PUBKEY],
-          '#d': ['wavlake-picks', 'weekly-picks', 'wavlake-weekly'],
-          limit: 10,
-        }
-      ], { signal });
+    queryKey: ['wavlake-picks'],
+    queryFn: async () => {
+      // Fetch trending tracks from Wavlake as "picks"
+      const tracks = await wavlakeAPI.getRankings({
+        sort: 'sats',
+        days: 7,
+        limit: 10,
+      });
 
-      // If no specific list found, try searching for any list with wavlake in the title
-      if (events.length === 0) {
-        const allLists = await nostr.query([
-          {
-            kinds: [30004, 30005],
-            authors: [PEACHY_PUBKEY],
-            limit: 20,
-          }
-        ], { signal });
+      // Convert WavlakeTrack to MusicTrack format
+      const musicTracks: MusicTrack[] = tracks.map((track: WavlakeTrack) => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.albumTitle,
+        duration: track.duration,
+        image: track.albumArtUrl || track.artistArtUrl,
+        mediaUrl: track.mediaUrl,
+        albumArtUrl: track.albumArtUrl,
+        artistArtUrl: track.artistArtUrl,
+        artistId: track.artistId,
+        albumId: track.albumId,
+        artistNpub: track.artistNpub,
+        msatTotal: track.msatTotal,
+        releaseDate: track.releaseDate,
+        description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
+        publishedAt: new Date(track.releaseDate).getTime() / 1000,
+        urls: [{
+          url: track.mediaUrl,
+          mimeType: 'audio/mpeg',
+          quality: 'stream'
+        }],
+        createdAt: Math.floor(Date.now() / 1000), // Current timestamp
+        pubkey: track.artistNpub,
+      }));
 
-        // Filter for lists that might be Wavlake picks
-        const wavlakeLists = allLists.filter(event => {
-          const title = event.tags.find(([tag]) => tag === 'title')?.[1]?.toLowerCase();
-          const description = event.tags.find(([tag]) => tag === 'description')?.[1]?.toLowerCase();
-          return title?.includes('wavlake') || description?.includes('wavlake') || 
-                 title?.includes('weekly') || title?.includes('pick');
-        });
-
-        events.push(...wavlakeLists);
-      }
-
-      if (events.length === 0) return null;
-
-      // Get the most recent Wavlake picks list
-      const latestList = events.sort((a, b) => b.created_at - a.created_at)[0];
-      return parseMusicList(latestList);
+      return {
+        id: 'wavlake-weekly-picks',
+        pubkey: PEACHY_PUBKEY,
+        dTag: 'wavlake-weekly-picks',
+        title: "Peachy's Weekly Wavlake Picks",
+        description: 'Top trending Bitcoin music tracks from Wavlake',
+        image: musicTracks[0]?.image, // Use first track's image as playlist image
+        tracks: musicTracks,
+        createdAt: Math.floor(Date.now() / 1000),
+        updatedAt: Math.floor(Date.now() / 1000),
+      };
     },
+    staleTime: 30 * 60 * 1000, // 30 minutes
   });
 }
 
 // Hook to get specific tracks referenced in a list
-export function useTracksFromList(trackRefs: string[]) {
-  const { nostr } = useNostr();
-
+export function useTracksFromList(tracks: MusicTrack[] | string[]) {
   return useQuery({
-    queryKey: ['tracks-from-list', trackRefs],
-    queryFn: async (c) => {
-      if (!trackRefs || trackRefs.length === 0) return [];
-
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+    queryKey: ['tracks-from-list', tracks],
+    queryFn: async () => {
+      // If tracks is already an array of MusicTrack objects, return them directly
+      if (tracks && tracks.length > 0 && typeof tracks[0] === 'object') {
+        return tracks as MusicTrack[];
+      }
       
-      // Separate different types of references
-      const eventIds: string[] = [];
-      const addresses: string[] = [];
-      const urls: string[] = [];
-
-      trackRefs.forEach(ref => {
-        if (ref.startsWith('http')) {
-          urls.push(ref);
-        } else if (ref.startsWith('e:')) {
-          eventIds.push(ref.substring(2));
-        } else if (ref.includes(':')) {
-          addresses.push(ref);
-        } else {
-          // Assume direct event ID (hex string)
-          eventIds.push(ref);
-        }
-      });
-
-      const allMusicEvents: NostrEvent[] = [];
-
-      // First, try to get the events as kind 32123 directly
-      if (eventIds.length > 0) {
-        const musicEvents = await nostr.query([{
-          ids: eventIds,
-          kinds: [32123],
-        }], { signal });
+      // If tracks is an array of strings (track IDs), fetch them from Wavlake
+      if (tracks && tracks.length > 0 && typeof tracks[0] === 'string') {
+        const trackIds = tracks as string[];
+        const fetchedTracks: MusicTrack[] = [];
         
-        allMusicEvents.push(...musicEvents);
-        
-        // If we didn't find them as kind 32123, maybe they're kind 1 references
-        const missingIds = eventIds.filter(id => 
-          !musicEvents.some(event => event.id === id)
-        );
-        
-        if (missingIds.length > 0) {
-          const kind1Events = await nostr.query([{
-            ids: missingIds,
-            kinds: [1],
-          }], { signal });
-          
-          // Extract a tags pointing to kind 32123 events
-          const musicEventRefs: string[] = [];
-          
-          kind1Events.forEach(event => {
-            event.tags
-              .filter(([tag, value]) => tag === 'a' && value?.includes('32123:'))
-              .forEach(([, value]) => {
-                if (value) musicEventRefs.push(value);
-              });
-          });
-          
-          if (musicEventRefs.length > 0) {
-            // Parse addresses to get individual kind 32123 events
-            const musicQueries = musicEventRefs.map(ref => {
-              const [kind, pubkey, dTag] = ref.split(':');
-              return {
-                kinds: [parseInt(kind)],
-                authors: [pubkey],
-                '#d': [dTag],
-              };
+        for (const trackId of trackIds) {
+          try {
+            const track = await wavlakeAPI.getTrack(trackId);
+            fetchedTracks.push({
+              id: track.id,
+              title: track.title,
+              artist: track.artist,
+              album: track.albumTitle,
+              duration: track.duration,
+              image: track.albumArtUrl || track.artistArtUrl,
+              mediaUrl: track.mediaUrl,
+              albumArtUrl: track.albumArtUrl,
+              artistArtUrl: track.artistArtUrl,
+              artistId: track.artistId,
+              albumId: track.albumId,
+              artistNpub: track.artistNpub,
+              msatTotal: track.msatTotal,
+              releaseDate: track.releaseDate,
+              description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
+              publishedAt: new Date(track.releaseDate).getTime() / 1000,
+              urls: [{
+                url: track.mediaUrl,
+                mimeType: 'audio/mpeg',
+                quality: 'stream'
+              }],
+              createdAt: Math.floor(Date.now() / 1000),
+              pubkey: track.artistNpub,
             });
-            
-            const referencedMusic = await nostr.query(musicQueries, { signal });
-            allMusicEvents.push(...referencedMusic);
+          } catch (error) {
+            console.error(`Failed to fetch track ${trackId}:`, error);
           }
         }
-      }
-
-      // Handle addressable event references
-      if (addresses.length > 0) {
-        const addressQueries = addresses.map(ref => {
-          const [kind, pubkey, dTag] = ref.split(':');
-          return {
-            kinds: [parseInt(kind)],
-            authors: [pubkey],
-            '#d': [dTag],
-          };
-        });
         
-        const addressableEvents = await nostr.query(addressQueries, { signal });
-        allMusicEvents.push(...addressableEvents);
+        return fetchedTracks;
       }
-
-      // Parse tracks and return
-      const tracks = allMusicEvents
-        .map(parseMusicTrack)
-        .filter((track): track is MusicTrack => track !== null);
-
-      return tracks;
+      
+      return [];
     },
-    enabled: trackRefs && trackRefs.length > 0,
+    enabled: tracks && tracks.length > 0,
   });
 }

@@ -31,8 +31,8 @@ export function MusicPlayer({ track, onNext, onPrevious, className }: MusicPlaye
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Get best quality URL for playback
-  const playbackUrl = track.urls.find(u => u.quality === 'stream')?.url || track.urls[0]?.url;
+  // Get media URL for playback from Wavlake API data
+  const playbackUrl = track.mediaUrl;
 
   // Format time display
   const formatTime = (seconds: number) => {
