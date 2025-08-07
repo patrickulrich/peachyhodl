@@ -28,7 +28,7 @@ export async function addTrackToPicksSimple(
     // Build existing track references
     const existingTrackRefs: string[][] = [];
     if (currentPicksData && typeof currentPicksData === 'object' && 'tracks' in currentPicksData) {
-      const currentTracks = (currentPicksData as { tracks?: { id: string }[] }).tracks || [];
+      const currentTracks = (currentPicksData as { tracks?: MusicTrack[] }).tracks || [];
       existingTrackRefs.push(...currentTracks.map((t) => ['r', t.id]));
     }
     

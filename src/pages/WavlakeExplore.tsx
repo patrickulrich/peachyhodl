@@ -154,7 +154,7 @@ export default function WavlakeExplore() {
       
       // Check if track is already added to prevent duplicates
       if (currentPicksData && typeof currentPicksData === 'object' && 'tracks' in currentPicksData) {
-        const currentTracks = (currentPicksData as { tracks?: { id: string }[] }).tracks || [];
+        const currentTracks = (currentPicksData as { tracks?: MusicTrack[] }).tracks || [];
         const isAlreadyAdded = currentTracks.some((t) => t.id === track.id);
         if (isAlreadyAdded) {
           toast({
@@ -179,7 +179,8 @@ export default function WavlakeExplore() {
         const existingData = oldData as { tracks?: MusicTrack[] };
         return {
           ...existingData,
-          tracks: [...(existingData.tracks || []), track]
+          tracks: [...(existingData.tracks || []), track],
+          updatedAt: Math.floor(Date.now() / 1000)
         };
       });
 
