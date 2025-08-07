@@ -1,11 +1,11 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWavlakeArtist } from '@/hooks/useWavlake';
-import { Music, ExternalLink, Calendar, User } from 'lucide-react';
+import { Music, ExternalLink, Calendar, User, Play, Disc3 } from 'lucide-react';
 import { MusicTrack } from '@/hooks/useMusicLists';
 import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { useState } from 'react';
@@ -129,43 +129,67 @@ export default function WavlakeArtist() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Music className="h-5 w-5" />
+                <Disc3 className="h-5 w-5" />
                 Albums ({artist.albums.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {artist.albums.map((album) => (
-                  <Card key={album.id} className="hover:bg-accent transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-muted rounded flex items-center justify-center overflow-hidden">
-                          {album.albumArtUrl ? (
-                            <img 
-                              src={album.albumArtUrl} 
-                              alt={album.title}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Music className="h-8 w-8 text-muted-foreground" />
-                          )}
+                  <Card key={album.id} className="group hover:shadow-md transition-all duration-200 overflow-hidden">
+                    <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-primary/10 to-accent/10">
+                      {album.albumArtUrl ? (
+                        <img 
+                          src={album.albumArtUrl} 
+                          alt={album.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Disc3 className="h-16 w-16 text-muted-foreground" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium truncate">{album.title}</h4>
+                      )}
+                      
+                      {/* Play overlay */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Link to={`/album/${album.id}`}>
+                          <Button size="lg" className="rounded-full shadow-lg">
+                            <Play className="h-6 w-6" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                    
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="font-semibold text-lg truncate" title={album.title}>
+                            {album.title}
+                          </h4>
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
                             {new Date(album.releaseDate).getFullYear()}
                           </p>
                         </div>
-                        <Button variant="outline" size="sm" asChild>
-                          <a 
-                            href={`https://wavlake.com/album/${album.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </Button>
+                        
+                        <div className="flex items-center gap-2">
+                          <Link to={`/album/${album.id}`} className="flex-1">
+                            <Button variant="outline" className="w-full">
+                              <Play className="h-3 w-3 mr-2" />
+                              View Album
+                            </Button>
+                          </Link>
+                          <Button variant="outline" size="sm" asChild>
+                            <a 
+                              href={`https://wavlake.com/album/${album.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View on Wavlake"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -173,9 +197,22 @@ export default function WavlakeArtist() {
               </div>
 
               {artist.albums.length === 0 && (
-                <div className="text-center py-8">
-                  <Music className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No albums found for this artist.</p>
+                <div className="text-center py-12">
+                  <Disc3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Albums Found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    This artist hasn't released any albums on Wavlake yet.
+                  </p>
+                  <Button variant="outline" asChild>
+                    <a 
+                      href={`https://wavlake.com/artist/${artistId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-2" />
+                      View on Wavlake
+                    </a>
+                  </Button>
                 </div>
               )}
             </CardContent>

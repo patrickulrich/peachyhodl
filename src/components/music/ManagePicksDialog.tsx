@@ -13,8 +13,8 @@ import { useToast } from '@/hooks/useToast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useWavlakeSearch, useWavlakeRankings } from '@/hooks/useWavlake';
-import { Settings, Search, Plus, Trash2, ExternalLink, Music, MoveUp, MoveDown, TrendingUp, Filter } from 'lucide-react';
+import { useWavlakeSearch, useWavlakeRankings, useWavlakeArtist, useWavlakeAlbum } from '@/hooks/useWavlake';
+import { Settings, Search, Plus, Trash2, ExternalLink, Music, MoveUp, MoveDown, TrendingUp, Filter, ArrowLeft, User, Disc3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { MusicTrack, MusicList } from '@/hooks/useMusicLists';
 import type { WavlakeTrack, WavlakePlaylist } from '@/lib/wavlake';
@@ -38,6 +38,11 @@ export function ManagePicksDialog({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [manualTrackId, setManualTrackId] = useState('');
+  
+  // Drill-down state for artists and albums
+  const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+  const [drillDownMode, setDrillDownMode] = useState<'search' | 'artist' | 'album'>('search');
   const [listTitle, setListTitle] = useState('');
   const [listDescription, setListDescription] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -59,6 +64,10 @@ export function ManagePicksDialog({
   
   // Search Wavlake tracks
   const { data: searchResults = [], isLoading: isSearching, refetch: searchTracks } = useWavlakeSearch(searchQuery, false);
+  
+  // Artist/Album drill-down data
+  const { data: artistData, isLoading: isLoadingArtist } = useWavlakeArtist(selectedArtistId || undefined);
+  const { data: albumData, isLoading: isLoadingAlbum } = useWavlakeAlbum(selectedAlbumId || undefined);
   
   // Get trending tracks for discovery
   const { data: trendingTracks = [], isLoading: isLoadingTrending, refetch: refetchTrending } = useWavlakeRankings({
@@ -88,8 +97,32 @@ export function ManagePicksDialog({
   // Handle search
   const handleSearch = () => {
     if (searchQuery.trim()) {
+      setDrillDownMode('search');
+      setSelectedArtistId(null);
+      setSelectedAlbumId(null);
       searchTracks();
     }
+  };
+
+  // Handle artist drill-down
+  const handleSelectArtist = (artistId: string) => {
+    setSelectedArtistId(artistId);
+    setSelectedAlbumId(null);
+    setDrillDownMode('artist');
+  };
+
+  // Handle album drill-down
+  const handleSelectAlbum = (albumId: string) => {
+    setSelectedAlbumId(albumId);
+    setSelectedArtistId(null);
+    setDrillDownMode('album');
+  };
+
+  // Go back to search results
+  const handleBackToSearch = () => {
+    setDrillDownMode('search');
+    setSelectedArtistId(null);
+    setSelectedAlbumId(null);
   };
 
   // Convert WavlakeTrack to MusicTrack format
@@ -744,6 +777,7 @@ export function ManagePicksDialog({
 
           <TabsContent value="search" className="space-y-4">
             <div className="space-y-4">
+              {/* Search Header */}
               <div className="space-y-3">
                 <div className="flex gap-2">
                   <div className="flex-1">
@@ -763,7 +797,36 @@ export function ManagePicksDialog({
                   </div>
                 </div>
                 
-                {searchResults.length > 0 && (
+                {/* Breadcrumb for drill-down */}
+                {drillDownMode !== 'search' && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleBackToSearch}
+                      className="p-1 h-auto"
+                    >
+                      <ArrowLeft className="h-3 w-3 mr-1" />
+                      Back to search
+                    </Button>
+                    <span className="text-muted-foreground">•</span>
+                    {drillDownMode === 'artist' && artistData && (
+                      <span className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {artistData.name}
+                      </span>
+                    )}
+                    {drillDownMode === 'album' && albumData && (
+                      <span className="flex items-center gap-1">
+                        <Disc3 className="h-3 w-3" />
+                        {albumData.title}
+                      </span>
+                    )}
+                  </div>
+                )}
+                
+                {/* Filter badges for search results */}
+                {drillDownMode === 'search' && searchResults.length > 0 && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Filter className="h-3 w-3" />
                     <span>Filter results:</span>
@@ -786,148 +849,322 @@ export function ManagePicksDialog({
 
             <ScrollArea className="h-96">
               <div className="space-y-2">
-                {isSearching ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <Card key={i}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <Skeleton className="w-12 h-12 rounded" />
-                          <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-48" />
-                            <Skeleton className="h-3 w-32" />
-                          </div>
-                          <Skeleton className="h-8 w-20" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : searchResults.length > 0 ? (
-                  searchResults.map((result) => (
-                    <Card key={result.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-muted rounded flex items-center justify-center overflow-hidden">
-                            {result.albumArtUrl || result.artistArtUrl ? (
-                              <img 
-                                src={result.albumArtUrl || result.artistArtUrl} 
-                                alt={result.name} 
-                                className="w-full h-full object-cover" 
-                              />
-                            ) : (
-                              <Music className="h-6 w-6 text-muted-foreground" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium truncate">{result.title || result.name}</h4>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {result.artist} {result.albumTitle && `• ${result.albumTitle}`}
-                            </p>
-                            <Badge variant="outline" className="mt-1 text-xs">
-                              {result.type}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              asChild
-                            >
-                              <a 
-                                href={`https://wavlake.com/${result.type}/${result.id}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </Button>
-                            {(result.type === 'artist' || result.type === 'album') && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                asChild
-                              >
-                                <a 
-                                  href={`/${result.type}/${result.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                {/* Search Results */}
+                {drillDownMode === 'search' && (
+                  <>
+                    {isSearching ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <Skeleton className="w-12 h-12 rounded" />
+                              <div className="flex-1 space-y-2">
+                                <Skeleton className="h-4 w-48" />
+                                <Skeleton className="h-3 w-32" />
+                              </div>
+                              <Skeleton className="h-8 w-20" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : searchResults.length > 0 ? (
+                      searchResults.map((result) => (
+                        <Card key={result.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-muted rounded flex items-center justify-center overflow-hidden">
+                                {result.albumArtUrl || result.artistArtUrl ? (
+                                  <img 
+                                    src={result.albumArtUrl || result.artistArtUrl} 
+                                    alt={result.name} 
+                                    className="w-full h-full object-cover" 
+                                  />
+                                ) : (
+                                  <Music className="h-6 w-6 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium truncate">{result.title || result.name}</h4>
+                                <p className="text-sm text-muted-foreground truncate">
+                                  {result.artist} {result.albumTitle && `• ${result.albumTitle}`}
+                                </p>
+                                <Badge variant="outline" className="mt-1 text-xs">
+                                  {result.type}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  asChild
                                 >
-                                  View
-                                </a>
-                              </Button>
-                            )}
-                            {result.type === 'track' && (
-                              <Button
-                                size="sm"
-                                onClick={async () => {
-                                  // Convert search result to MusicTrack and add
-                                  const { wavlakeAPI } = await import('@/lib/wavlake');
-                                  try {
-                                    const track = await wavlakeAPI.getTrack(result.id);
-                                    const musicTrack: MusicTrack = {
-                                      id: track.id,
-                                      title: track.title,
-                                      artist: track.artist,
-                                      album: track.albumTitle,
-                                      duration: track.duration,
-                                      image: track.albumArtUrl || track.artistArtUrl,
-                                      mediaUrl: track.mediaUrl,
-                                      albumArtUrl: track.albumArtUrl,
-                                      artistArtUrl: track.artistArtUrl,
-                                      artistId: track.artistId,
-                                      albumId: track.albumId,
-                                      artistNpub: track.artistNpub,
-                                      msatTotal: track.msatTotal,
-                                      releaseDate: track.releaseDate,
-                                      description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
-                                      publishedAt: new Date(track.releaseDate).getTime() / 1000,
-                                      urls: [{
-                                        url: track.mediaUrl,
-                                        mimeType: 'audio/mpeg',
-                                        quality: 'stream'
-                                      }],
-                                      createdAt: Math.floor(Date.now() / 1000),
-                                      pubkey: track.artistNpub,
-                                    };
-                                    addTrackToList(musicTrack);
-                                  } catch {
-                                    toast({
-                                      title: 'Failed to Add Track',
-                                      description: 'Could not fetch track details.',
-                                      variant: 'destructive',
-                                    });
-                                  }
-                                }}
-                                disabled={isUpdating}
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Add
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : searchQuery ? (
-                  <Card>
-                    <CardContent className="p-8 text-center">
-                      <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="font-semibold mb-2">No Results</h3>
-                      <p className="text-muted-foreground">
-                        No tracks found for "{searchQuery}". Try different keywords.
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card>
-                    <CardContent className="p-8 text-center">
-                      <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="font-semibold mb-2">Search Wavlake</h3>
-                      <p className="text-muted-foreground">
-                        Enter a search term to find tracks to add to your picks.
-                      </p>
-                    </CardContent>
-                  </Card>
+                                  <a 
+                                    href={`https://wavlake.com/${result.type}/${result.id}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                </Button>
+                                {result.type === 'artist' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSelectArtist(result.id)}
+                                  >
+                                    <User className="h-3 w-3 mr-1" />
+                                    View Tracks
+                                  </Button>
+                                )}
+                                {result.type === 'album' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSelectAlbum(result.id)}
+                                  >
+                                    <Disc3 className="h-3 w-3 mr-1" />
+                                    View Tracks
+                                  </Button>
+                                )}
+                                {result.type === 'track' && (
+                                  <Button
+                                    size="sm"
+                                    onClick={async () => {
+                                      // Convert search result to MusicTrack and add
+                                      const { wavlakeAPI } = await import('@/lib/wavlake');
+                                      try {
+                                        const track = await wavlakeAPI.getTrack(result.id);
+                                        const musicTrack = convertToMusicTrack(track);
+                                        addTrackToList(musicTrack);
+                                      } catch {
+                                        toast({
+                                          title: 'Failed to Add Track',
+                                          description: 'Could not fetch track details.',
+                                          variant: 'destructive',
+                                        });
+                                      }
+                                    }}
+                                    disabled={isUpdating}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : searchQuery ? (
+                      <Card>
+                        <CardContent className="p-8 text-center">
+                          <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="font-semibold mb-2">No Results</h3>
+                          <p className="text-muted-foreground">
+                            No tracks found for "{searchQuery}". Try different keywords.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card>
+                        <CardContent className="p-8 text-center">
+                          <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="font-semibold mb-2">Search Wavlake</h3>
+                          <p className="text-muted-foreground">
+                            Enter a search term to find tracks to add to your picks.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                )}
+
+                {/* Artist Track Listing */}
+                {drillDownMode === 'artist' && (
+                  <>
+                    {isLoadingArtist ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <Skeleton className="w-12 h-12 rounded" />
+                              <div className="flex-1 space-y-2">
+                                <Skeleton className="h-4 w-48" />
+                                <Skeleton className="h-3 w-32" />
+                              </div>
+                              <Skeleton className="h-8 w-20" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : artistData ? (
+                      <>
+                        {/* Artist Albums */}
+                        {artistData.albums.map((album) => (
+                          <Card key={album.id}>
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-muted rounded flex items-center justify-center overflow-hidden">
+                                  {album.albumArtUrl ? (
+                                    <img 
+                                      src={album.albumArtUrl} 
+                                      alt={album.title} 
+                                      className="w-full h-full object-cover" 
+                                    />
+                                  ) : (
+                                    <Disc3 className="h-6 w-6 text-muted-foreground" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium truncate">{album.title}</h4>
+                                  <p className="text-sm text-muted-foreground truncate">
+                                    Album • {new Date(album.releaseDate).getFullYear()}
+                                  </p>
+                                  <Badge variant="outline" className="mt-1 text-xs">
+                                    album
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    asChild
+                                  >
+                                    <a 
+                                      href={`https://wavlake.com/album/${album.id}`} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSelectAlbum(album.id)}
+                                  >
+                                    <Disc3 className="h-3 w-3 mr-1" />
+                                    View Tracks
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </>
+                    ) : (
+                      <Card>
+                        <CardContent className="p-8 text-center">
+                          <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="font-semibold mb-2">Artist Not Found</h3>
+                          <p className="text-muted-foreground">
+                            Could not load artist information.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                )}
+
+                {/* Album Track Listing */}
+                {drillDownMode === 'album' && (
+                  <>
+                    {isLoadingAlbum ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <Card key={i}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <Skeleton className="w-12 h-12 rounded" />
+                              <div className="flex-1 space-y-2">
+                                <Skeleton className="h-4 w-48" />
+                                <Skeleton className="h-3 w-32" />
+                              </div>
+                              <Skeleton className="h-8 w-20" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : albumData?.tracks ? (
+                      albumData.tracks.map((track, index) => {
+                        const isAlreadyAdded = orderedTracks.some(t => t.id === track.id);
+                        return (
+                          <Card key={track.id} className={isAlreadyAdded ? 'bg-muted/50' : ''}>
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
+                                  {index + 1}
+                                </div>
+                                <div className="w-12 h-12 bg-muted rounded flex items-center justify-center overflow-hidden">
+                                  {track.albumArtUrl ? (
+                                    <img 
+                                      src={track.albumArtUrl} 
+                                      alt={track.title} 
+                                      className="w-full h-full object-cover" 
+                                    />
+                                  ) : (
+                                    <Music className="h-6 w-6 text-muted-foreground" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium truncate">{track.title}</h4>
+                                  <p className="text-sm text-muted-foreground truncate">
+                                    {track.artist}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {track.duration && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    asChild
+                                  >
+                                    <a 
+                                      href={`https://wavlake.com/track/${track.id}`} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => addTrackToList(convertToMusicTrack(track))}
+                                    disabled={isUpdating || isAlreadyAdded}
+                                    variant={isAlreadyAdded ? "secondary" : "default"}
+                                  >
+                                    {isAlreadyAdded ? (
+                                      <>✓ Added</>
+                                    ) : (
+                                      <>
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Add
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })
+                    ) : (
+                      <Card>
+                        <CardContent className="p-8 text-center">
+                          <Disc3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="font-semibold mb-2">Album Not Found</h3>
+                          <p className="text-muted-foreground">
+                            Could not load album tracks.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
                 )}
               </div>
             </ScrollArea>
