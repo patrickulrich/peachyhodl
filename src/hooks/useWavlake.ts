@@ -51,3 +51,21 @@ export function useWavlakeAlbum(albumId: string | undefined) {
     staleTime: 30 * 60 * 1000, // 30 minutes
   });
 }
+
+export function useWavlakePlaylist(playlistId: string | undefined) {
+  return useQuery({
+    queryKey: ['wavlake-playlist', playlistId],
+    queryFn: () => wavlakeAPI.getPlaylist(playlistId!),
+    enabled: !!playlistId,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+}
+
+export function useWavlakeLnurl(contentId: string | undefined, appId: string = 'peachyhodl') {
+  return useQuery({
+    queryKey: ['wavlake-lnurl', contentId, appId],
+    queryFn: () => wavlakeAPI.getLnurl(contentId!, appId),
+    enabled: !!contentId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - shorter since LNURL can change
+  });
+}

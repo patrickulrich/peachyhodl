@@ -10,12 +10,12 @@ interface SidebarProps {
 
 const menuItems = [
   { icon: Home, label: "Home", path: "/" },
+  { icon: User, label: "About", path: "/about" },
   { icon: Camera, label: "Photos", path: "/photos" },
-  { icon: User, label: "About Peachy", path: "/about" },
-  { icon: Mic, label: "Audio Rooms", path: "/audio-rooms" },
   { icon: Calendar, label: "Events", path: "/events" },
-  { icon: Music, label: "Peachy's Weekly Wavlake Picks", path: "/wavlake-picks" },
   { icon: BookOpen, label: "Blog", path: "/blog" },
+  { icon: Mic, label: "Audio Rooms", path: "/audio-rooms" },
+  { icon: Music, label: "Peachy's Weekly Wavlake Picks", path: "/wavlake-picks" },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {

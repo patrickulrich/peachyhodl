@@ -255,7 +255,6 @@ const Index = () => {
           <div className="fixed bottom-4 left-4 right-4 z-50">
             <MusicPlayer
               track={currentTrack}
-              autoPlay={isPlaying}
               onNext={() => {
                 const currentIndex = featuredTracks.findIndex(t => t.id === currentTrack.id);
                 const nextIndex = (currentIndex + 1) % featuredTracks.length;

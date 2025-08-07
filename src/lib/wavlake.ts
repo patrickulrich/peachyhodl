@@ -58,6 +58,12 @@ export interface WavlakeSearchResult {
   duration?: number;
 }
 
+export interface WavlakePlaylist {
+  userId: string;
+  title: string;
+  tracks: WavlakeTrack[];
+}
+
 export interface WavlakeLnurlResponse {
   lnurl: string;
 }
@@ -109,12 +115,22 @@ export class WavlakeAPI {
     return response.json();
   }
 
+  async getPlaylist(playlistId: string): Promise<WavlakePlaylist> {
+    const response = await fetch(`${this.baseUrl}/content/playlist/${playlistId}`);
+    if (!response.ok) {
+      throw new Error(`Playlist fetch failed: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
   async getTrack(trackId: string): Promise<WavlakeTrack> {
     const response = await fetch(`${this.baseUrl}/content/track/${trackId}`);
     if (!response.ok) {
       throw new Error(`Track fetch failed: ${response.statusText}`);
     }
-    return response.json();
+    const result = await response.json();
+    // The API returns an array, but we want the first (and only) track
+    return Array.isArray(result) ? result[0] : result;
   }
 
   async getArtist(artistId: string): Promise<WavlakeArtist> {

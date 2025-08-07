@@ -58,6 +58,7 @@ const WavlakePicks = () => {
     const currentIndex = tracks.findIndex(track => track.id === currentTrack.id);
     const nextIndex = (currentIndex + 1) % tracks.length;
     setCurrentTrack(tracks[nextIndex]);
+    setIsPlaying(true); // Auto-play the next track
   };
 
   const handlePrevious = () => {
@@ -66,6 +67,7 @@ const WavlakePicks = () => {
     const currentIndex = tracks.findIndex(track => track.id === currentTrack.id);
     const prevIndex = currentIndex === 0 ? tracks.length - 1 : currentIndex - 1;
     setCurrentTrack(tracks[prevIndex]);
+    setIsPlaying(true); // Auto-play the previous track
   };
 
   // Data refresh is now handled by React Query invalidation in ManagePicksDialog
@@ -222,6 +224,7 @@ const WavlakePicks = () => {
             {currentTrack && (
               <MusicPlayer
                 track={currentTrack}
+                autoPlay={isPlaying}
                 onNext={tracks.length > 1 ? handleNext : undefined}
                 onPrevious={tracks.length > 1 ? handlePrevious : undefined}
               />
