@@ -22,8 +22,30 @@ export async function addTrackToPicksSimple(
   queryClient: QueryClient
 ) {
   try {
-    // Add this track to the picks by creating a simple reference
-    // In a more complete implementation, you'd merge with existing picks
+    // Get current picks to merge with new track
+    const currentPicksData = queryClient.getQueryData(['wavlake-picks', '0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820']);
+    
+    // Build existing track references
+    const existingTrackRefs: string[][] = [];
+    if (currentPicksData && typeof currentPicksData === 'object' && 'tracks' in currentPicksData) {
+      const currentTracks = (currentPicksData as { tracks?: { id: string }[] }).tracks || [];
+      existingTrackRefs.push(...currentTracks.map((t) => ['r', t.id]));
+    }
+    
+    // Check if track is already in the list
+    const isAlreadyAdded = existingTrackRefs.some(([, id]) => id === track.id);
+    if (isAlreadyAdded) {
+      toast({
+        title: 'Track Already in Picks',
+        description: `"${track.title}" is already in your weekly picks.`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    // Add new track reference to existing ones
+    const allTrackRefs = [...existingTrackRefs, ['r', track.id]];
+
     await publishEvent({
       kind: 30004, // NIP-51 Curation Set
       content: 'Curated Bitcoin music tracks from Wavlake',
@@ -31,7 +53,7 @@ export async function addTrackToPicksSimple(
         ['d', 'wavlake-picks'], // Identifier for the list
         ['title', "Peachy's Weekly Wavlake Picks"],
         ['description', 'Curated Bitcoin music tracks from Wavlake'],
-        ['r', track.id], // Reference track by ID
+        ...allTrackRefs, // Include all track references (existing + new)
       ],
     });
 

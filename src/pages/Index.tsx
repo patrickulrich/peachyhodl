@@ -45,6 +45,11 @@ const Index = () => {
     }
   };
 
+  const handleClosePlayer = () => {
+    setCurrentTrack(null);
+    setIsPlaying(false);
+  };
+
   // Generate live event ID for chat
   const liveEventId = liveStreamData?.event
     ? `30311:${liveStreamData.event.pubkey}:${
@@ -266,6 +271,7 @@ const Index = () => {
                 const prevIndex = currentIndex === 0 ? featuredTracks.length - 1 : currentIndex - 1;
                 setCurrentTrack(featuredTracks[prevIndex]);
               } : undefined}
+              onClose={handleClosePlayer}
             />
           </div>
         )}

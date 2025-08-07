@@ -182,6 +182,12 @@ export default function WavlakeExplore() {
     setIsPlaying(true);
   }, [currentTrack, currentTrackList]);
 
+  const handleClosePlayer = useCallback(() => {
+    setCurrentTrack(null);
+    setIsPlaying(false);
+    setCurrentTrackList([]);
+  }, []);
+
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
@@ -755,6 +761,7 @@ export default function WavlakeExplore() {
               autoPlay={isPlaying}
               onNext={currentTrackList.length > 1 ? handleNext : undefined}
               onPrevious={currentTrackList.length > 1 ? handlePrevious : undefined}
+              onClose={handleClosePlayer}
             />
           </div>
         )}

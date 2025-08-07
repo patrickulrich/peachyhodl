@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import type { MusicTrack } from '@/hooks/useMusicLists';
+import { WavlakeZapDialog } from '@/components/music/WavlakeZapDialog';
 import { 
   Play, 
   Pause, 
@@ -11,19 +12,21 @@ import {
   SkipForward, 
   Volume2, 
   VolumeX,
-  ExternalLink,
-  Clock
+  Clock,
+  Zap,
+  X
 } from 'lucide-react';
 
 interface MusicPlayerProps {
   track: MusicTrack;
   onNext?: () => void;
   onPrevious?: () => void;
+  onClose?: () => void;
   autoPlay?: boolean;
   className?: string;
 }
 
-export function MusicPlayer({ track, onNext, onPrevious, autoPlay = false, className }: MusicPlayerProps) {
+export function MusicPlayer({ track, onNext, onPrevious, onClose, autoPlay = false, className }: MusicPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -235,22 +238,31 @@ export function MusicPlayer({ track, onNext, onPrevious, autoPlay = false, class
                   {formatTime(currentTime)} / {formatTime(duration || track.duration || 0)}
                 </div>
 
-                {/* External link to Wavlake */}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  asChild
-                  className="h-8 w-8 p-0 ml-auto"
-                >
-                  <a
-                    href={playbackUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Open on Wavlake"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </Button>
+                {/* Zap and Close buttons */}
+                <div className="flex items-center gap-1 ml-auto">
+                  <WavlakeZapDialog track={track}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      title="Zap Artist"
+                    >
+                      <Zap className="h-4 w-4" />
+                    </Button>
+                  </WavlakeZapDialog>
+                  
+                  {onClose && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={onClose}
+                      className="h-8 w-8 p-0"
+                      title="Close Player"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Progress bar */}

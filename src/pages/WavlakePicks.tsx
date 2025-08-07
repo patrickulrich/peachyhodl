@@ -13,7 +13,7 @@ import { ManagePicksDialog } from '@/components/music/ManagePicksDialog';
 import { useWavlakePicks, useTracksFromList } from '@/hooks/useMusicLists';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { MusicTrack } from '@/hooks/useMusicLists';
-import { Music, Settings, ExternalLink, Zap, Compass } from 'lucide-react';
+import { Music, Settings, ExternalLink, Zap, Compass, Monitor } from 'lucide-react';
 
 // Peachy's pubkey for checking if current user is Peachy
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -76,6 +76,11 @@ const WavlakePicks = () => {
     // No need to do anything here - the ManagePicksDialog handles cache invalidation
   };
 
+  const handleClosePlayer = () => {
+    setCurrentTrack(null);
+    setIsPlaying(false);
+  };
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -101,14 +106,6 @@ const WavlakePicks = () => {
             
             {/* Action buttons */}
             <div className="flex items-center gap-3">
-              {/* Explore Wavlake button - visible to everyone */}
-              <Button variant="outline" asChild>
-                <Link to="/explore-wavlake" className="flex items-center gap-2">
-                  <Compass className="h-4 w-4" />
-                  Explore Wavlake
-                </Link>
-              </Button>
-              
               {/* Manage button for Peachy only */}
               {isPeachy && (
                 <ManagePicksDialog 
@@ -125,6 +122,24 @@ const WavlakePicks = () => {
                   </Button>
                 </ManagePicksDialog>
               )}
+              
+              {/* Party View button - visible to everyone but only when tracks exist */}
+              {tracks.length > 0 && (
+                <Button variant="outline" asChild>
+                  <Link to="/party-view" className="flex items-center gap-2">
+                    <Monitor className="h-4 w-4" />
+                    Party View
+                  </Link>
+                </Button>
+              )}
+              
+              {/* Explore Wavlake button - visible to everyone */}
+              <Button variant="outline" asChild>
+                <Link to="/explore-wavlake" className="flex items-center gap-2">
+                  <Compass className="h-4 w-4" />
+                  Explore Wavlake
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -239,6 +254,7 @@ const WavlakePicks = () => {
                 autoPlay={isPlaying}
                 onNext={tracks.length > 1 ? handleNext : undefined}
                 onPrevious={tracks.length > 1 ? handlePrevious : undefined}
+                onClose={handleClosePlayer}
               />
             )}
 
