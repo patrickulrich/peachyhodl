@@ -28,10 +28,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     env:
-      # Set base path based on repository name
-      # For user/org pages (username.github.io), use '/'
-      # For project pages, use '/repository-name/'
-      VITE_BASE_PATH: ${{ github.event.repository.name == 'patrickulrich.github.io' && '/' || format('/{0}/', github.event.repository.name) }}
+      # Set base path for custom domain (peachyhodl.com)
+      # Custom domains always serve from root path
+      VITE_BASE_PATH: /
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
