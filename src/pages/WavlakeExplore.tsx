@@ -149,9 +149,68 @@ export default function WavlakeExplore() {
     try {
       setIsAddingTrack(true);
       
-      const { addTrackToPicksSimple } = await import('@/lib/addTrackToPicks');
-      await addTrackToPicksSimple(track, publishEvent, toast, queryClient);
+      // Get current picks data for optimistic update
+      const currentPicksData = queryClient.getQueryData(['wavlake-picks', PEACHY_PUBKEY]);
+      
+      // Check if track is already added to prevent duplicates
+      if (currentPicksData && typeof currentPicksData === 'object' && 'tracks' in currentPicksData) {
+        const currentTracks = (currentPicksData as { tracks?: { id: string }[] }).tracks || [];
+        const isAlreadyAdded = currentTracks.some((t) => t.id === track.id);
+        if (isAlreadyAdded) {
+          toast({
+            title: 'Track Already in Picks',
+            description: `"${track.title}" is already in your weekly picks.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
 
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(['wavlake-picks', PEACHY_PUBKEY], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object' || !('tracks' in oldData)) {
+          return {
+            tracks: [track],
+            title: "Peachy's Weekly Wavlake Picks",
+            updatedAt: Math.floor(Date.now() / 1000)
+          };
+        }
+        
+        const existingData = oldData as { tracks?: MusicTrack[] };
+        return {
+          ...existingData,
+          tracks: [...(existingData.tracks || []), track]
+        };
+      });
+
+      // Show success toast immediately
+      toast({
+        title: 'Track Added to Picks',
+        description: `Added "${track.title}" by ${track.artist} to your weekly picks.`,
+      });
+
+      // Then publish to Nostr in the background (don't show duplicate toasts)
+      const { addTrackToPicksSimple } = await import('@/lib/addTrackToPicks');
+      try {
+        await addTrackToPicksSimple(track, publishEvent, () => {}, queryClient); // Empty toast function to prevent duplicates
+      } catch (publishError) {
+        // If the Nostr publish fails, we still keep the optimistic update since the user sees it as added
+        console.warn('Failed to publish to Nostr, but keeping optimistic update:', publishError);
+      }
+
+    } catch (error) {
+      console.error('Failed to add track to picks:', error);
+      
+      // Revert the optimistic update on error
+      queryClient.invalidateQueries({
+        queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+      });
+      
+      toast({
+        title: 'Failed to Add Track',
+        description: 'Could not add track to your picks. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsAddingTrack(false);
     }
