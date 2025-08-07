@@ -83,28 +83,33 @@ export function useNIP100() {
 
     const tags = [['type', 'connect']];
     
-    if (roomId && targetPubkeys) {
-      // Group room
+    // Add room ID tag - this is public so all participants can see which room
+    if (roomId) {
+      tags.push(['r', roomId]);
+    }
+    
+    // For group rooms, we publish a public event that everyone can see
+    // rather than encrypting to specific participants
+    if (roomId && (!targetPubkeys || targetPubkeys.length === 0)) {
+      // Broadcast connect - no specific targets, anyone can see
+      // This allows discovery of the room by all participants
+    } else if (targetPubkeys && targetPubkeys.length > 0) {
+      // Specific participants
       for (const pubkey of targetPubkeys) {
         tags.push(['p', pubkey]);
-        const encryptedRoomId = await encryptRoomId(roomId, pubkey);
-        tags.push(['r', encryptedRoomId]);
       }
-    } else if (targetPubkeys?.length === 1) {
-      // One-on-one call
-      tags.push(['p', targetPubkeys[0]]);
     }
 
     await publishEvent({
       kind: 25050,
-      content: '',
+      content: `Joining room: ${roomId || 'unknown'}`,
       tags,
     });
 
     if (roomId) {
       setConnectedRooms(prev => new Set(prev).add(roomId));
     }
-  }, [user, publishEvent, encryptRoomId]);
+  }, [user, publishEvent]);
 
   // Publish disconnect event
   const publishDisconnect = useCallback(async (roomId?: string, targetPubkeys?: string[]) => {
@@ -347,13 +352,27 @@ export function useNIP100() {
     setIsListening(true);
 
     try {
-      const events = await nostr.query([
-        {
-          kinds: [25050],
-          '#p': [user.pubkey], // Only events directed at us
-          since: Math.floor(Date.now() / 1000) - 3600, // Last hour
-        }
+      // Query for both directed events and general room events
+      const [directedEvents, roomEvents] = await Promise.all([
+        // Events directed specifically at us
+        nostr.query([
+          {
+            kinds: [25050],
+            '#p': [user.pubkey], // Events directed at us
+            since: Math.floor(Date.now() / 1000) - 3600, // Last hour
+          }
+        ]),
+        // General room events (connect/disconnect announcements)
+        nostr.query([
+          {
+            kinds: [25050],
+            '#r': [PEACHY_AUDIO_ROOM.id], // Events for our room
+            since: Math.floor(Date.now() / 1000) - 3600, // Last hour
+          }
+        ])
       ]);
+
+      const events = [...directedEvents, ...roomEvents];
 
       const handleEvent = async (event: NostrEvent) => {
         try {
@@ -502,14 +521,24 @@ export function useNIP100() {
       // Set up a simple polling mechanism for now
       const pollInterval = setInterval(async () => {
         try {
-          const newEvents = await nostr.query([
-            {
-              kinds: [25050],
-              '#p': [user.pubkey],
-              since: Math.floor(Date.now() / 1000) - 60, // Last minute
-            }
+          const [directedEvents, roomEvents] = await Promise.all([
+            nostr.query([
+              {
+                kinds: [25050],
+                '#p': [user.pubkey],
+                since: Math.floor(Date.now() / 1000) - 60, // Last minute
+              }
+            ]),
+            nostr.query([
+              {
+                kinds: [25050],
+                '#r': [PEACHY_AUDIO_ROOM.id],
+                since: Math.floor(Date.now() / 1000) - 60, // Last minute
+              }
+            ])
           ]);
-          newEvents.forEach(handleEvent);
+          const allNewEvents = [...directedEvents, ...roomEvents];
+          allNewEvents.forEach(handleEvent);
         } catch (error) {
           console.error('Failed to poll for new events:', error);
         }

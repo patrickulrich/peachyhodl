@@ -16,9 +16,9 @@ import { Music, Settings, ExternalLink, Zap } from 'lucide-react';
 // Peachy's pubkey for checking if current user is Peachy
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
 
-const WavlakePics = () => {
+const WavlakePicks = () => {
   useSeoMeta({
-    title: 'Peachy\'s Weekly Wavlake Pics',
+    title: 'Peachy\'s Weekly Wavlake Picks',
     description: 'Discover Peachy\'s favorite Bitcoin music picks from Wavlake.',
   });
 
@@ -67,6 +67,12 @@ const WavlakePics = () => {
     setCurrentTrack(tracks[prevIndex]);
   };
 
+  const handleManageList = () => {
+    // TODO: Implement list management functionality
+    // This could open a modal or navigate to a management page
+    console.log('Manage list clicked - implementing soon!');
+  };
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -83,7 +89,7 @@ const WavlakePics = () => {
             <div>
               <h1 className="text-4xl font-bold mb-4 flex items-center gap-3">
                 <Music className="h-10 w-10 text-primary" />
-                Peachy's Weekly Wavlake Pics
+                Peachy's Weekly Wavlake Picks
               </h1>
               <p className="text-lg text-muted-foreground">
                 Discover Peachy's favorite Bitcoin music from Wavlake, powered by Nostr lists.
@@ -92,7 +98,11 @@ const WavlakePics = () => {
             
             {/* Manage button for Peachy */}
             {isPeachy && (
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={handleManageList}
+              >
                 <Settings className="h-4 w-4" />
                 Manage List
               </Button>
@@ -281,4 +291,4 @@ const WavlakePics = () => {
   );
 };
 
-export default WavlakePics;
+export default WavlakePicks;

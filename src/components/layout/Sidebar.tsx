@@ -14,7 +14,7 @@ const menuItems = [
   { icon: User, label: "About Peachy", path: "/about" },
   { icon: Mic, label: "Audio Rooms", path: "/audio-rooms" },
   { icon: Calendar, label: "Events", path: "/events" },
-  { icon: Music, label: "Peachy's Weekly Wavlake Picks", path: "/wavlake-pics" },
+  { icon: Music, label: "Peachy's Weekly Wavlake Picks", path: "/wavlake-picks" },
   { icon: BookOpen, label: "Blog", path: "/blog" },
 ];
 

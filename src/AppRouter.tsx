@@ -6,7 +6,7 @@ import Photos from "./pages/Photos";
 import About from "./pages/About";
 import AudioRooms from "./pages/AudioRooms";
 import Events from "./pages/Events";
-import WavlakePics from "./pages/WavlakePics";
+import WavlakePicks from "./pages/WavlakePicks";
 import Blog from "./pages/Blog";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
@@ -21,7 +21,8 @@ export function AppRouter() {
         <Route path="/about" element={<About />} />
         <Route path="/audio-rooms" element={<AudioRooms />} />
         <Route path="/events" element={<Events />} />
-        <Route path="/wavlake-pics" element={<WavlakePics />} />
+        <Route path="/wavlake-picks" element={<WavlakePicks />} />
+        <Route path="/wavlake-pics" element={<WavlakePicks />} />
         <Route path="/blog" element={<Blog />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
         <Route path="/:nip19" element={<NIP19Page />} />

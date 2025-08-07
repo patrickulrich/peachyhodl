@@ -137,7 +137,7 @@ const Index = () => {
               Peachy's Weekly Wavlake Picks
             </h2>
             <Button variant="outline" asChild>
-              <a href="/wavlake-pics">View All</a>
+              <a href="/wavlake-picks">View All</a>
             </Button>
           </div>
 

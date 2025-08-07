@@ -93,24 +93,28 @@ export function AudioRoom() {
     }
 
     try {
-      // Initialize media
+      // Initialize media first
       await initializeMedia(false, true); // Audio only by default
       
-      // Start listening for signaling events
+      // Start listening for signaling events first
       await startListening();
       
-      // Get current participants from available rooms
-      const currentRoom = availableRooms.get(roomId);
-      const participants = currentRoom?.participants || [];
+      // Wait a moment for existing participants to be discovered
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Publish connect event
-      await publishConnect(roomId, participants);
+      // Get current participants from available rooms - this should include everyone already in the room
+      const currentRoom = availableRooms.get(roomId);
+      const existingParticipants = currentRoom?.participants || [];
+      
+      // Announce our presence to ALL participants (not just current ones we know about)
+      // We broadcast to everyone by not specifying participants, letting the NIP-100 system handle discovery
+      await publishConnect(roomId, []); // Empty array means broadcast to all
       
       setIsJoined(true);
       
       toast({
         title: 'Joined Room',
-        description: `Connected to ${roomName}`,
+        description: `Connected to ${roomName} (${existingParticipants.length} participant${existingParticipants.length === 1 ? '' : 's'} already connected)`,
       });
     } catch (error) {
       console.error('Failed to join room:', error);
@@ -152,15 +156,26 @@ export function AudioRoom() {
     if (!user) return;
 
     const handleConnect = async (event: WebRTCSignalingEvent) => {
-      if (event.roomId === roomId && event.pubkey !== user.pubkey) {
-        // Someone joined the room, create offer
+      if (event.roomId === roomId && event.pubkey !== user.pubkey && isJoined) {
+        // Someone else joined the room, we need to establish WebRTC connection
         try {
-          const offer = await createOffer(event.pubkey);
-          if (offer) {
-            await publishOffer(offer, event.pubkey, roomId);
+          console.log(`New participant joined: ${event.pubkey.substring(0, 8)}...`);
+          
+          // Use pubkey comparison to determine who should initiate
+          // The user with the lexicographically smaller pubkey initiates
+          const shouldInitiate = user.pubkey < event.pubkey;
+          
+          if (shouldInitiate) {
+            console.log(`Initiating connection to ${event.pubkey.substring(0, 8)}...`);
+            const offer = await createOffer(event.pubkey);
+            if (offer) {
+              await publishOffer(offer, event.pubkey, roomId);
+            }
+          } else {
+            console.log(`Waiting for connection from ${event.pubkey.substring(0, 8)}...`);
           }
         } catch (error) {
-          console.error('Failed to create offer:', error);
+          console.error('Failed to handle connect event:', error);
         }
       }
     };
@@ -256,7 +271,7 @@ export function AudioRoom() {
         };
       }
     });
-  }, [peers, publishIceCandidate, roomId, user]);
+  }, [peers, publishIceCandidate, roomId, user, isJoined]);
 
   // Audio level monitoring
   useEffect(() => {
@@ -340,7 +355,7 @@ export function AudioRoom() {
                 <CardTitle className="text-xl">{roomName}</CardTitle>
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-muted-foreground">
-                    {(availableRooms.get(roomId)?.participants.length || 0) + (isJoined ? 1 : 0)} participant{(availableRooms.get(roomId)?.participants.length || 0) === 0 ? '' : 's'}
+                    {isJoined ? peers.size + 1 : (availableRooms.get(roomId)?.participants.length || 0)} participant{isJoined ? (peers.size === 0 ? '' : 's') : ((availableRooms.get(roomId)?.participants.length || 0) === 1 ? '' : 's')}
                   </p>
                   {isModerator() && (
                     <Badge variant="outline" className="text-xs">
