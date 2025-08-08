@@ -299,21 +299,7 @@ export default function WeeklySongsLeaderboard() {
     setCurrentTrackList([]);
   }, []);
 
-  // Restrict access to Peachy only
-  if (user && !isPeachy) {
-    return (
-      <MainLayout>
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Access Restricted</h1>
-            <p className="text-muted-foreground">
-              This page is only available to Peachy.
-            </p>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
+  // Remove Peachy-only restriction - page is now visible to everyone
 
   return (
     <MainLayout>

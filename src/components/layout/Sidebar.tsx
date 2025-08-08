@@ -17,10 +17,11 @@ const baseMenuItems = [
   { icon: BookOpen, label: "Blog", path: "/blog" },
   { icon: Mic, label: "Audio Rooms", path: "/audio-rooms" },
   { icon: Music, label: "Peachy's Weekly Wavlake Picks", path: "/wavlake-picks" },
+  { icon: Trophy, label: "Weekly Songs Leaderboard", path: "/weekly-songs-leaderboard" },
 ];
 
 const peachyOnlyItems = [
-  { icon: Trophy, label: "Weekly Songs Leaderboard", path: "/weekly-songs-leaderboard" },
+  // Currently no Peachy-only items
 ];
 
 export function Sidebar({ open, onClose, isPeachy = false }: SidebarProps) {
