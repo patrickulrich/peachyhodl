@@ -17,6 +17,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import type { MusicTrack } from '@/hooks/useMusicLists';
+import { createNIP17TrackSuggestion, type TrackSuggestionData } from '@/lib/nip17-proper';
+import type { NostrEvent } from '@nostrify/nostrify';
 import { MessageCircle, Music, Send, User } from 'lucide-react';
 
 // Peachy's pubkey for sending suggestions
@@ -37,36 +39,6 @@ export function SuggestTrackModal({ track, children, className }: SuggestTrackMo
   const { mutateAsync: publishEvent } = useNostrPublish();
   const { toast } = useToast();
 
-  // Create a formatted track suggestion message
-  const createTrackSuggestion = (track: MusicTrack, userComment: string) => {
-    const trackInfo = [
-      `🎵 Track Suggestion`,
-      ``,
-      `**${track.title || 'Unknown Track'}**`,
-      `by ${track.artist || 'Unknown Artist'}`,
-    ];
-
-    if (track.album) {
-      trackInfo.push(`Album: ${track.album}`);
-    }
-
-    if (track.genre) {
-      trackInfo.push(`Genre: ${track.genre}`);
-    }
-
-    // Add link to the track page on peachyhodl.com
-    trackInfo.push(`🔗 View Track: ${window.location.origin}/wavlake/${track.id}`);
-
-    if (track.urls?.[0]?.url || track.mediaUrl) {
-      trackInfo.push(`🎧 Listen on Wavlake: ${track.urls?.[0]?.url || track.mediaUrl}`);
-    }
-
-    if (userComment.trim()) {
-      trackInfo.push('', `💬 Comment: "${userComment.trim()}"`);
-    }
-
-    return trackInfo.join('\n');
-  };
 
   const handleSuggest = async () => {
     if (!user) {
@@ -80,8 +52,8 @@ export function SuggestTrackModal({ track, children, className }: SuggestTrackMo
 
     if (!user.signer.nip44) {
       toast({
-        title: 'Encryption Not Supported',
-        description: 'Your Nostr client does not support NIP-44 encryption required for private messages.',
+        title: 'NIP-44 Encryption Required',
+        description: 'Your Nostr client must support NIP-44 encryption for private messaging. Please update your extension or use a compatible client.',
         variant: 'destructive',
       });
       return;
@@ -90,22 +62,25 @@ export function SuggestTrackModal({ track, children, className }: SuggestTrackMo
     setIsSubmitting(true);
 
     try {
-      // Create the track suggestion message
-      const messageContent = createTrackSuggestion(track, comment);
-      
-      // Encrypt the message content using NIP-44
-      const encryptedContent = await user.signer.nip44.encrypt(PEACHY_PUBKEY, messageContent);
+      // Prepare track suggestion data
+      const trackSuggestionData: TrackSuggestionData = {
+        trackId: track.id,
+        trackTitle: track.title || 'Unknown Track',
+        trackArtist: track.artist || 'Unknown Artist',
+        message: comment.trim() || 'No additional message',
+      };
 
-      // Note: According to NIP-17, kind 14 events should be sealed and gift-wrapped
-      // For now, we'll send as encrypted kind 4 (NIP-04 style) for compatibility
-      // TODO: Implement full NIP-17 sealing and gift wrapping
-      await publishEvent({
-        kind: 4, // NIP-04 encrypted direct message for compatibility
-        content: encryptedContent,
-        tags: [
-          ['p', PEACHY_PUBKEY],
-        ],
-      });
+      // Create and send NIP-17 encrypted message with proper sealing and gift wrapping
+      await createNIP17TrackSuggestion(
+        trackSuggestionData,
+        user.signer as { 
+          getPublicKey: () => Promise<string>; 
+          signEvent: (event: unknown) => Promise<NostrEvent>;
+          nip44: { encrypt: (pubkey: string, message: string) => Promise<string> }; 
+        }, // Type assertion since we already checked nip44 exists
+        PEACHY_PUBKEY,
+        publishEvent
+      );
 
       toast({
         title: 'Track Suggested!',

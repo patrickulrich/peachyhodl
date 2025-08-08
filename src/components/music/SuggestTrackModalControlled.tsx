@@ -15,6 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { MessageCircle } from 'lucide-react';
 import type { MusicTrack } from '@/hooks/useMusicLists';
+import { createNIP17TrackSuggestion, type TrackSuggestionData } from '@/lib/nip17-proper';
+import type { NostrEvent } from '@nostrify/nostrify';
 
 // Peachy's pubkey - who will receive the suggestions
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -40,39 +42,6 @@ export function SuggestTrackModalControlled({ track, open, onOpenChange }: Sugge
     }
   }, [open]);
 
-  // Create a formatted track suggestion message
-  const createTrackSuggestion = (track: MusicTrack, userComment: string) => {
-    const trackInfo = [
-      `🎵 Track Suggestion`,
-      ``,
-      `**${track.title || 'Unknown Track'}**`,
-      `by ${track.artist || 'Unknown Artist'}`,
-    ];
-
-    if (track.album) {
-      trackInfo.push(`Album: ${track.album}`);
-    }
-
-    if (track.genre) {
-      trackInfo.push(`Genre: ${track.genre}`);
-    }
-
-    // Add link to the track page on peachyhodl.com
-    trackInfo.push(`🔗 View Track: ${window.location.origin}/wavlake/${track.id}`);
-
-    // Add Wavlake link if available
-    if (track.mediaUrl || track.id) {
-      trackInfo.push(`🎧 Listen on Wavlake: https://wavlake.com/track/${track.id}`);
-    }
-
-    if (userComment) {
-      trackInfo.push('');
-      trackInfo.push('💬 Message:');
-      trackInfo.push(userComment);
-    }
-
-    return trackInfo.join('\n');
-  };
 
   const handleSubmit = async () => {
     if (!user) {
@@ -102,22 +71,37 @@ export function SuggestTrackModalControlled({ track, open, onOpenChange }: Sugge
       return;
     }
 
+    if (!user.signer.nip44) {
+      toast({
+        title: 'NIP-44 Encryption Required',
+        description: 'Your Nostr client must support NIP-44 encryption for private messaging. Please update your extension or use a compatible client.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Create the track suggestion message
-      const messageContent = createTrackSuggestion(track, comment);
-      
-      // Create NIP-17 private message event
-      const event = {
-        kind: 17, // NIP-17 Private Direct Message
-        content: messageContent,
-        tags: [
-          ['p', PEACHY_PUBKEY], // recipient
-        ],
+      // Prepare track suggestion data
+      const trackSuggestionData: TrackSuggestionData = {
+        trackId: track.id,
+        trackTitle: track.title || 'Unknown Track',
+        trackArtist: track.artist || 'Unknown Artist',
+        message: comment.trim(),
       };
 
-      await publishEvent(event);
+      // Create and send NIP-17 encrypted message with proper sealing and gift wrapping
+      await createNIP17TrackSuggestion(
+        trackSuggestionData,
+        user.signer as { 
+          getPublicKey: () => Promise<string>; 
+          signEvent: (event: unknown) => Promise<NostrEvent>;
+          nip44: { encrypt: (pubkey: string, message: string) => Promise<string> }; 
+        }, // Type assertion since we already checked nip44 exists
+        PEACHY_PUBKEY,
+        publishEvent
+      );
 
       toast({
         title: 'Track Suggested!',

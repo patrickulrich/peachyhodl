@@ -1,6 +1,7 @@
 import { Menu, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoginArea } from "@/components/auth/LoginArea";
+import { TrackSuggestionNotifications } from "@/components/notifications/TrackSuggestionNotifications";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 
@@ -45,8 +46,9 @@ export function Header({ onMenuClick, className }: HeaderProps) {
           </a>
         </div>
 
-        {/* Right: Theme toggle and Login/Profile */}
+        {/* Right: Notifications, Theme toggle and Login/Profile */}
         <div className="flex items-center gap-2">
+          <TrackSuggestionNotifications />
           <Button
             variant="ghost"
             size="icon"
