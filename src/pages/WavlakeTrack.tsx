@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
+import { AddToPlaylistButton } from '@/components/music/AddToPlaylistButton';
 import { useWavlakeTrack } from '@/hooks/useWavlake';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { 
   Music, 
@@ -24,8 +26,12 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+// Peachy's pubkey
+const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
+
 const WavlakeTrack = () => {
   const { trackId } = useParams<{ trackId: string }>();
+  const { user } = useCurrentUser();
   
   // For now, we'll use a placeholder hook until we implement the actual Wavlake API integration
   // TODO: Implement useWavlakeTrack hook to fetch track details from Wavlake API
@@ -240,12 +246,21 @@ const WavlakeTrack = () => {
 
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-                    <SuggestTrackModal track={trackData}>
-                      <Button className="flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        Suggest to Peachy
-                      </Button>
-                    </SuggestTrackModal>
+                    {user?.pubkey === PEACHY_PUBKEY ? (
+                      // Show "Add to Playlist" button for Peachy
+                      <AddToPlaylistButton 
+                        track={trackData}
+                        className="flex items-center gap-2"
+                      />
+                    ) : (
+                      // Show "Suggest to Peachy" button for everyone else
+                      <SuggestTrackModal track={trackData}>
+                        <Button className="flex items-center gap-2">
+                          <MessageCircle className="h-4 w-4" />
+                          Suggest to Peachy
+                        </Button>
+                      </SuggestTrackModal>
+                    )}
 
                     <Button variant="outline" asChild>
                       <a
