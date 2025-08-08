@@ -33,6 +33,7 @@ import type { WavlakeTrack } from '@/lib/wavlake';
 import { Link } from 'react-router-dom';
 import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
+import { SuggestTrackModalControlled } from '@/components/music/SuggestTrackModalControlled';
 
 // Peachy's pubkey
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -51,6 +52,7 @@ export default function WavlakeExplore() {
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [isAddingTrack, setIsAddingTrack] = useState(false);
   const [trackToSuggest, setTrackToSuggest] = useState<MusicTrack | null>(null);
+  const [suggestModalOpen, setSuggestModalOpen] = useState(false);
   
   // Music player state
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
@@ -705,6 +707,7 @@ export default function WavlakeExplore() {
                                           const track = await wavlakeAPI.getTrack(result.id);
                                           const musicTrack = convertToMusicTrack(track);
                                           setTrackToSuggest(musicTrack);
+                                          setSuggestModalOpen(true);
                                         } catch {
                                           toast({
                                             title: 'Failed to Load Track',
@@ -958,25 +961,17 @@ export default function WavlakeExplore() {
           </div>
         )}
 
-        {/* Hidden modal for track suggestions from search results */}
-        {trackToSuggest && (
-          <div style={{ position: 'absolute', visibility: 'hidden' }}>
-            <SuggestTrackModal track={trackToSuggest}>
-              <button
-                ref={(el) => {
-                  if (el) {
-                    setTimeout(() => {
-                      el.click();
-                      setTrackToSuggest(null);
-                    }, 100);
-                  }
-                }}
-              >
-                Open
-              </button>
-            </SuggestTrackModal>
-          </div>
-        )}
+        {/* Controlled modal for track suggestions from search results */}
+        <SuggestTrackModalControlled
+          track={trackToSuggest}
+          open={suggestModalOpen}
+          onOpenChange={(open) => {
+            setSuggestModalOpen(open);
+            if (!open) {
+              setTrackToSuggest(null);
+            }
+          }}
+        />
       </div>
     </MainLayout>
   );
