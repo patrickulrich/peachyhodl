@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
@@ -453,10 +454,24 @@ export default function WeeklySongsLeaderboard() {
                           
                           <div className="flex-1 min-w-0 ml-11 sm:ml-0">
                             <h3 className={`font-medium line-clamp-1 ${isCurrentTrack ? 'text-primary' : ''}`}>
-                              {vote.trackTitle}
+                              <Link 
+                                to={`/wavlake/${vote.trackId}`}
+                                className="hover:underline hover:text-primary transition-colors"
+                              >
+                                {vote.trackTitle}
+                              </Link>
                             </h3>
                             <p className="text-sm text-muted-foreground line-clamp-1">
-                              {vote.trackArtist}
+                              {musicTracks.get(vote.trackId)?.artistId ? (
+                                <Link 
+                                  to={`/artist/${musicTracks.get(vote.trackId)?.artistId}`}
+                                  className="hover:underline hover:text-foreground transition-colors"
+                                >
+                                  {vote.trackArtist}
+                                </Link>
+                              ) : (
+                                vote.trackArtist
+                              )}
                             </p>
                             <div className="flex items-center gap-2 mt-2">
                               <Badge variant="outline" className="text-xs flex items-center gap-1">
