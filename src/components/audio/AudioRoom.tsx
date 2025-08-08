@@ -93,30 +93,23 @@ export function AudioRoom() {
     }
 
     try {
-      // Initialize media first
+      // NRTC Pattern: Simple join flow
+      // 1. Initialize media
       await initializeMedia(false, true); // Audio only by default
       
-      // Start listening for signaling events first
+      // 2. Start listening for events (real-time subscription)
       await startListening();
       
-      // Set joined state BEFORE announcing presence
-      // This is important so we don't initiate connections when we receive our own connect event
-      setIsJoined(true);
-      
-      // Wait a moment for existing participants to be discovered
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Get current participants from available rooms
-      const currentRoom = availableRooms.get(roomId);
-      const existingParticipants = currentRoom?.participants || [];
-      
-      // Announce our presence to the room
+      // 3. Immediately announce presence (no complex state management)
       // NRTC pattern: New joiner broadcasts connect, existing users will initiate connections TO us
       await publishConnect(roomId, []); // Empty array means broadcast to all
       
+      // 4. Set joined state AFTER announcing (for UI only)
+      setIsJoined(true);
+      
       toast({
         title: 'Joined Room',
-        description: `Connected to ${roomName} (${existingParticipants.length} participant${existingParticipants.length === 1 ? '' : 's'} already connected)`,
+        description: `Connected to ${roomName}`,
       });
     } catch (error) {
       console.error('Failed to join room:', error);
@@ -127,7 +120,7 @@ export function AudioRoom() {
         variant: 'destructive',
       });
     }
-  }, [user, roomId, roomName, isUserBanned, initializeMedia, startListening, publishConnect, availableRooms, toast]);
+  }, [user, roomId, roomName, isUserBanned, initializeMedia, startListening, publishConnect, toast]);
 
   // Leave room
   const leaveRoom = useCallback(async () => {
@@ -159,23 +152,16 @@ export function AudioRoom() {
     if (!user) return;
 
     const handleConnect = async (event: WebRTCSignalingEvent) => {
-      // NRTC pattern: Only existing users (already joined) initiate connections to new users
-      // This prevents the "mutual kick" issue where both users try to initiate
-      if (event.roomId === roomId && event.pubkey !== user.pubkey && isJoined) {
-        // Check if we already have a connection with this peer
-        // This prevents duplicate connections
-        const existingPeer = users.find(id => id === event.pubkey);
-        if (existingPeer) {
-          console.log(`Already connected to ${event.pubkey.substring(0, 8)}...`);
-          return;
-        }
-        
-        // Someone else joined the room - we (existing user) should initiate connection TO them
+      // NRTC Pattern: Simple approach - always try to connect to new users
+      // Skip only our own events
+      if (event.roomId === roomId && event.pubkey !== user.pubkey) {
+        // Someone else joined the room - initiate connection TO them
+        // This follows NRTC's simple pattern: everyone connects to everyone
         try {
           console.log(`New participant joined: ${event.pubkey.substring(0, 8)}... - initiating connection`);
           
-          // NRTC pattern: Existing users always initiate to new users
-          // This prevents race conditions when multiple people join simultaneously
+          // Create offer and initiate connection
+          // The WebRTC layer will handle duplicate connections
           const offer = await initRTCPeerConnection(event.pubkey, (candidate: RTCIceCandidate) => {
             publishIceCandidate(candidate, event.pubkey, roomId);
           });
@@ -191,18 +177,19 @@ export function AudioRoom() {
 
     const handleOfferEvent = async (event: WebRTCSignalingEvent) => {
       if (event.roomId === roomId && event.pubkey !== user.pubkey && event.content) {
-        // Check if we already have a connection with this peer
-        const existingPeer = users.find(id => id === event.pubkey);
-        if (existingPeer) {
-          console.log(`Already have connection with ${event.pubkey.substring(0, 8)}..., ignoring offer`);
-          return;
-        }
-        
+        // NRTC Pattern: Always respond to offers
+        // Let WebRTC handle duplicate connections
         try {
-          const content = event.content as { sdp: string };
+          const content = event.content as { offer?: string; sdp?: string };
+          const sdp = content.offer || content.sdp; // Handle both formats
+          if (!sdp) {
+            console.error('Invalid offer content:', content);
+            return;
+          }
+          
           const answer = await onRTCOffer(event.pubkey, {
             type: 'offer',
-            sdp: content.sdp
+            sdp: sdp
           }, (candidate: RTCIceCandidate) => {
             publishIceCandidate(candidate, event.pubkey, roomId);
           });
@@ -350,6 +337,9 @@ export function AudioRoom() {
 
   return (
     <div className="space-y-4">
+      {/* Hidden audio element for remote streams (NRTC pattern) */}
+      <audio id="remoteAudio" autoPlay playsInline style={{ display: 'none' }} />
+      
       {/* Room Header */}
       <Card>
         <CardHeader>

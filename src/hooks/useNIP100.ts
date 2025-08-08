@@ -345,27 +345,20 @@ export function useNIP100() {
     setIsListening(true);
 
     try {
-      // Query for both directed events and general room events
-      const [directedEvents, roomEvents] = await Promise.all([
-        // Events directed specifically at us
-        nostr.query([
-          {
-            kinds: [25050],
-            '#p': [user.pubkey], // Events directed at us
-            since: Math.floor(Date.now() / 1000) - 3600, // Last hour
-          }
-        ]),
-        // General room events (connect/disconnect announcements)
-        nostr.query([
-          {
-            kinds: [25050],
-            '#r': [PEACHY_AUDIO_ROOM.id], // Events for our room
-            since: Math.floor(Date.now() / 1000) - 3600, // Last hour
-          }
-        ])
+      // NRTC Pattern: Create real-time subscription similar to relay.sub()
+      // Query initial events first
+      const recentEvents = await nostr.query([
+        {
+          kinds: [25050],
+          '#p': [user.pubkey],
+          since: Math.floor(Date.now() / 1000) - 60, // Last minute
+        },
+        {
+          kinds: [25050],
+          '#r': [PEACHY_AUDIO_ROOM.id],
+          since: Math.floor(Date.now() / 1000) - 60, // Last minute
+        }
       ]);
-
-      const events = [...directedEvents, ...roomEvents];
 
       const handleEvent = async (event: NostrEvent) => {
         try {
@@ -512,10 +505,13 @@ export function useNIP100() {
         }
       };
 
-      // Process existing events
-      events.forEach(handleEvent);
+      // Process initial events
+      recentEvents.forEach(handleEvent);
       
-      // Set up a simple polling mechanism for now
+      // Set up frequent polling (like NRTC pattern but faster)
+      // Use 1-second polling for better real-time behavior
+      let lastEventTime = Math.floor(Date.now() / 1000);
+      
       const pollInterval = setInterval(async () => {
         try {
           const [directedEvents, roomEvents] = await Promise.all([
@@ -523,24 +519,29 @@ export function useNIP100() {
               {
                 kinds: [25050],
                 '#p': [user.pubkey],
-                since: Math.floor(Date.now() / 1000) - 60, // Last minute
+                since: lastEventTime,
               }
             ]),
             nostr.query([
               {
                 kinds: [25050],
                 '#r': [PEACHY_AUDIO_ROOM.id],
-                since: Math.floor(Date.now() / 1000) - 60, // Last minute
+                since: lastEventTime,
               }
             ])
           ]);
-          const allNewEvents = [...directedEvents, ...roomEvents];
-          allNewEvents.forEach(handleEvent);
+          
+          const newEvents = [...directedEvents, ...roomEvents];
+          if (newEvents.length > 0) {
+            // Update last event time to newest event
+            lastEventTime = Math.max(...newEvents.map(e => e.created_at));
+            newEvents.forEach(handleEvent);
+          }
         } catch (error) {
           console.error('Failed to poll for new events:', error);
         }
-      }, 5000); // Poll every 5 seconds
-
+      }, 1000); // Poll every second for better responsiveness
+      
       subscriptionRef.current = { close: () => clearInterval(pollInterval) };
 
     } catch (error) {
