@@ -87,16 +87,12 @@ export function TrackSuggestionNotifications() {
           </ScrollArea>
         )}
         
-        {suggestions.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-center justify-center" asChild>
-              <Link to="/notifications" className="text-sm text-muted-foreground hover:text-foreground">
-                View all suggestions
-              </Link>
-            </DropdownMenuItem>
-          </>
-        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-center justify-center" asChild>
+          <Link to="/notifications" className="text-sm text-muted-foreground hover:text-foreground">
+            View all suggestions
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
