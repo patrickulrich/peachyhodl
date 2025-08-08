@@ -18,7 +18,9 @@ import {
   Album,
   Tag,
   MessageCircle,
-  ArrowLeft
+  ArrowLeft,
+  Zap,
+  TrendingUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -29,7 +31,32 @@ const WavlakeTrack = () => {
   // TODO: Implement useWavlakeTrack hook to fetch track details from Wavlake API
   const { data: track, isLoading, error } = useWavlakeTrack(trackId);
 
-  const trackData = track as MusicTrack | undefined;
+  // Convert WavlakeTrack to MusicTrack if needed
+  const trackData: MusicTrack | undefined = track ? {
+    id: track.id,
+    title: track.title,
+    artist: track.artist,
+    album: track.albumTitle,
+    duration: track.duration,
+    image: track.albumArtUrl || track.artistArtUrl,
+    mediaUrl: track.mediaUrl,
+    albumArtUrl: track.albumArtUrl,
+    artistArtUrl: track.artistArtUrl,
+    artistId: track.artistId,
+    albumId: track.albumId,
+    artistNpub: track.artistNpub,
+    msatTotal: track.msatTotal,
+    releaseDate: track.releaseDate,
+    description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
+    publishedAt: new Date(track.releaseDate).getTime() / 1000,
+    urls: [{
+      url: track.mediaUrl,
+      mimeType: 'audio/mpeg',
+      quality: 'stream'
+    }],
+    createdAt: Math.floor(Date.now() / 1000),
+    pubkey: track.artistNpub,
+  } : undefined;
 
   useSeoMeta({
     title: trackData ? `${trackData.title || 'Unknown Track'} - ${trackData.artist || 'Unknown Artist'}` : 'Track',
@@ -158,13 +185,31 @@ const WavlakeTrack = () => {
                     </h1>
                     <h2 className="text-xl text-muted-foreground mb-4 flex items-center justify-center md:justify-start gap-2">
                       <User className="h-5 w-5" />
-                      {trackData.artist || 'Unknown Artist'}
+                      {trackData.artistId ? (
+                        <Link 
+                          to={`/artist/${trackData.artistId}`}
+                          className="hover:text-primary transition-colors underline"
+                        >
+                          {trackData.artist || 'Unknown Artist'}
+                        </Link>
+                      ) : (
+                        trackData.artist || 'Unknown Artist'
+                      )}
                     </h2>
                     
                     {trackData.album && (
                       <p className="text-muted-foreground flex items-center justify-center md:justify-start gap-2 mb-2">
                         <Album className="h-4 w-4" />
-                        {trackData.album}
+                        {trackData.albumId ? (
+                          <Link 
+                            to={`/album/${trackData.albumId}`}
+                            className="hover:text-primary transition-colors underline"
+                          >
+                            {trackData.album}
+                          </Link>
+                        ) : (
+                          trackData.album
+                        )}
                       </p>
                     )}
                   </div>
@@ -204,7 +249,7 @@ const WavlakeTrack = () => {
 
                     <Button variant="outline" asChild>
                       <a
-                        href={trackData.urls?.[0]?.url || trackData.mediaUrl}
+                        href={`https://wavlake.com/track/${trackData.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2"
@@ -245,24 +290,43 @@ const WavlakeTrack = () => {
               <CardTitle>Track Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h4 className="font-semibold mb-2">Details</h4>
-                  <dl className="space-y-1 text-sm">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Music className="h-4 w-4" />
+                    Track Details
+                  </h4>
+                  <dl className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <dt className="text-muted-foreground">Artist:</dt>
-                      <dd>{trackData.artist || 'Unknown'}</dd>
+                      <dd>
+                        {trackData.artistId ? (
+                          <Link 
+                            to={`/artist/${trackData.artistId}`}
+                            className="hover:text-primary transition-colors underline"
+                          >
+                            {trackData.artist || 'Unknown'}
+                          </Link>
+                        ) : (
+                          trackData.artist || 'Unknown'
+                        )}
+                      </dd>
                     </div>
                     {trackData.album && (
                       <div className="flex justify-between">
                         <dt className="text-muted-foreground">Album:</dt>
-                        <dd>{trackData.album}</dd>
-                      </div>
-                    )}
-                    {trackData.genre && (
-                      <div className="flex justify-between">
-                        <dt className="text-muted-foreground">Genre:</dt>
-                        <dd>{trackData.genre}</dd>
+                        <dd>
+                          {trackData.albumId ? (
+                            <Link 
+                              to={`/album/${trackData.albumId}`}
+                              className="hover:text-primary transition-colors underline"
+                            >
+                              {trackData.album}
+                            </Link>
+                          ) : (
+                            trackData.album
+                          )}
+                        </dd>
                       </div>
                     )}
                     {trackData.duration && (
@@ -271,20 +335,48 @@ const WavlakeTrack = () => {
                         <dd>{formatDuration(trackData.duration)}</dd>
                       </div>
                     )}
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Track ID:</dt>
+                      <dd className="font-mono text-xs">{trackData.id}</dd>
+                    </div>
                   </dl>
                 </div>
                 
-                {trackData.publishedAt && (
-                  <div>
-                    <h4 className="font-semibold mb-2">Release Info</h4>
-                    <dl className="space-y-1 text-sm">
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Release & Stats
+                  </h4>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Release Date:</dt>
+                      <dd>{trackData.releaseDate ? new Date(trackData.releaseDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      }) : 'Unknown'}</dd>
+                    </div>
+                    {trackData.msatTotal && (
                       <div className="flex justify-between">
-                        <dt className="text-muted-foreground">Published:</dt>
-                        <dd>{formatDate(trackData.publishedAt)}</dd>
+                        <dt className="text-muted-foreground flex items-center gap-1">
+                          <Zap className="h-3 w-3" />
+                          Total Earnings:
+                        </dt>
+                        <dd className="font-medium">
+                          {Math.floor(parseInt(trackData.msatTotal) / 1000).toLocaleString()} sats
+                        </dd>
                       </div>
-                    </dl>
-                  </div>
-                )}
+                    )}
+                    {trackData.artistNpub && (
+                      <div className="flex justify-between">
+                        <dt className="text-muted-foreground">Artist Nostr:</dt>
+                        <dd className="font-mono text-xs truncate max-w-32" title={trackData.artistNpub}>
+                          {trackData.artistNpub.slice(0, 16)}...
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
               </div>
             </CardContent>
           </Card>
