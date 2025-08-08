@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useWavlakeSearch, useWavlakeRankings, useWavlakeArtist, useWavlakeAlbum } from '@/hooks/useWavlake';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useWavlakePicks } from '@/hooks/useMusicLists';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/useToast';
 import { 
@@ -59,6 +60,9 @@ export default function WavlakeExplore() {
   const queryClient = useQueryClient();
   
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
+  
+  // Load existing picks for Peachy to ensure we have the current list before adding tracks
+  const { data: _existingPicks } = useWavlakePicks();
 
   // Search and trending data
   const { data: searchResults = [], isLoading: isSearching, refetch: searchTracks } = useWavlakeSearch(searchQuery, false);
