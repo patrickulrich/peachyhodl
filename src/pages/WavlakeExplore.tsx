@@ -971,7 +971,9 @@ export default function WavlakeExplore() {
                     }, 100);
                   }
                 }}
-              />
+              >
+                Open
+              </button>
             </SuggestTrackModal>
           </div>
         )}

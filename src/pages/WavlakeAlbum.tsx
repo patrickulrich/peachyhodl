@@ -5,16 +5,36 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWavlakeAlbum } from '@/hooks/useWavlake';
-import { Music, ExternalLink, Calendar, Play, Clock } from 'lucide-react';
+import { Music, ExternalLink, Calendar, Play, Clock, Plus, MessageCircle } from 'lucide-react';
 import { MusicTrack } from '@/hooks/useMusicLists';
 import { MusicPlayer } from '@/components/music/MusicPlayer';
-import { useState } from 'react';
+import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
+import { useState, useCallback } from 'react';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/useToast';
+import { useWavlakePicks } from '@/hooks/useMusicLists';
+
+// Peachy's pubkey
+const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
 
 export default function WavlakeAlbum() {
   const { albumId } = useParams<{ albumId: string }>();
   const { data: album, isLoading, error } = useWavlakeAlbum(albumId);
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
+  const [isAddingTrack, setIsAddingTrack] = useState(false);
+  
+  const { user } = useCurrentUser();
+  const { toast } = useToast();
+  const { mutateAsync: publishEvent } = useNostrPublish();
+  const queryClient = useQueryClient();
+  
+  const isPeachy = user?.pubkey === PEACHY_PUBKEY;
+  
+  // Load existing picks for Peachy to ensure we have the current list before adding tracks
+  const { data: _existingPicks } = useWavlakePicks();
 
   // Convert album tracks to MusicTrack format
   const musicTracks: MusicTrack[] = album?.tracks.map((track) => ({
@@ -69,6 +89,103 @@ export default function WavlakeAlbum() {
   };
 
   const totalDuration = musicTracks.reduce((sum, track) => sum + (track.duration || 0), 0);
+
+  // Add track to Peachy's picks
+  const addTrackToPicks = useCallback(async (track: MusicTrack) => {
+    if (!isPeachy) return;
+
+    try {
+      setIsAddingTrack(true);
+      
+      // Get current picks data for optimistic update
+      const currentPicksData = queryClient.getQueryData(['wavlake-picks', PEACHY_PUBKEY]);
+      
+      // Check if track is already added to prevent duplicates
+      if (currentPicksData && typeof currentPicksData === 'object' && 'tracks' in currentPicksData) {
+        const currentTracks = (currentPicksData as { tracks?: MusicTrack[] }).tracks || [];
+        const isAlreadyAdded = currentTracks.some((t) => t.id === track.id);
+        if (isAlreadyAdded) {
+          toast({
+            title: 'Track Already in Picks',
+            description: `"${track.title}" is already in your weekly picks.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(['wavlake-picks', PEACHY_PUBKEY], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object' || !('tracks' in oldData)) {
+          return {
+            tracks: [track],
+            title: "Peachy's Weekly Wavlake Picks",
+            updatedAt: Math.floor(Date.now() / 1000)
+          };
+        }
+        
+        const existingData = oldData as { tracks?: MusicTrack[] };
+        return {
+          ...existingData,
+          tracks: [...(existingData.tracks || []), track],
+          updatedAt: Math.floor(Date.now() / 1000)
+        };
+      });
+
+      // Show success toast immediately
+      toast({
+        title: 'Track Added to Picks',
+        description: `Added "${track.title}" by ${track.artist} to your weekly picks.`,
+      });
+
+      // Then publish to Nostr in the background
+      const { addTrackToPicksSimple } = await import('@/lib/addTrackToPicks');
+      try {
+        const success = await addTrackToPicksSimple(track, publishEvent, (options) => {
+          // Only show error toasts, not success toasts (to prevent duplicates)
+          if (options.variant === 'destructive') {
+            toast(options);
+          }
+        }, queryClient);
+        
+        if (!success) {
+          // If addTrackToPicksSimple returned false, revert the optimistic update
+          queryClient.invalidateQueries({
+            queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+          });
+        }
+      } catch (publishError) {
+        console.warn('Failed to publish to Nostr:', publishError);
+        
+        // Revert the optimistic update on publish failure
+        queryClient.invalidateQueries({
+          queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+        });
+        
+        toast({
+          title: 'Failed to Save to Nostr',
+          description: 'Track was added locally but could not be saved to Nostr.',
+          variant: 'destructive',
+        });
+      }
+
+    } catch (error) {
+      console.error('Failed to add track to picks:', error);
+      
+      // Revert the optimistic update on error
+      queryClient.invalidateQueries({
+        queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+      });
+      
+      toast({
+        title: 'Failed to Add Track',
+        description: 'Could not add track to your picks. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAddingTrack(false);
+    }
+  }, [isPeachy, publishEvent, toast, queryClient]);
 
   if (isLoading) {
     return (
@@ -218,11 +335,15 @@ export default function WavlakeAlbum() {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h4 className={`font-medium truncate ${
-                        selectedTrack?.id === track.id ? 'text-primary' : ''
-                      }`}>
+                      <Link
+                        to={`/wavlake/${track.id}`}
+                        className={`font-medium truncate hover:underline block ${
+                          selectedTrack?.id === track.id ? 'text-primary' : 'hover:text-primary'
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {track.title}
-                      </h4>
+                      </Link>
                       <p className="text-sm text-muted-foreground truncate">
                         {track.artist}
                       </p>
@@ -231,6 +352,32 @@ export default function WavlakeAlbum() {
                     <div className="text-sm text-muted-foreground">
                       {formatDuration(track.duration || 0)}
                     </div>
+
+                    <SuggestTrackModal track={track}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Suggest to Peachy"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                      </Button>
+                    </SuggestTrackModal>
+
+                    {isPeachy && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addTrackToPicks(track);
+                        }}
+                        disabled={isAddingTrack}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add to Picks
+                      </Button>
+                    )}
 
                     <Button variant="ghost" size="sm" asChild>
                       <a 
