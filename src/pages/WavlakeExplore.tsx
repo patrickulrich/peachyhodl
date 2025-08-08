@@ -25,12 +25,14 @@ import {
   ArrowLeft, 
   ExternalLink, 
   Plus,
-  Play
+  Play,
+  MessageCircle
 } from 'lucide-react';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import type { WavlakeTrack } from '@/lib/wavlake';
 import { Link } from 'react-router-dom';
 import { MusicPlayer } from '@/components/music/MusicPlayer';
+import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
 
 // Peachy's pubkey
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -48,6 +50,7 @@ export default function WavlakeExplore() {
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [isAddingTrack, setIsAddingTrack] = useState(false);
+  const [trackToSuggest, setTrackToSuggest] = useState<MusicTrack | null>(null);
   
   // Music player state
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
@@ -402,9 +405,12 @@ export default function WavlakeExplore() {
                                   </div>
                                 </div>
                                 <div className="flex-1 min-w-0 ml-11 sm:ml-0">
-                                  <h4 className={`font-medium line-clamp-1 ${isCurrentTrack ? 'text-primary' : ''}`}>
+                                  <Link
+                                    to={`/wavlake/${track.id}`}
+                                    className={`font-medium line-clamp-1 hover:underline block ${isCurrentTrack ? 'text-primary' : 'hover:text-primary'}`}
+                                  >
                                     {track.title}
-                                  </h4>
+                                  </Link>
                                   <p className="text-sm text-muted-foreground line-clamp-1">
                                     {track.artist} {track.albumTitle && `• ${track.albumTitle}`}
                                   </p>
@@ -442,6 +448,15 @@ export default function WavlakeExplore() {
                                       <ExternalLink className="h-3 w-3" />
                                     </a>
                                   </Button>
+                                  <SuggestTrackModal track={musicTrack}>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      title="Suggest to Peachy"
+                                    >
+                                      <MessageCircle className="h-3 w-3" />
+                                    </Button>
+                                  </SuggestTrackModal>
                                   {isPeachy && (
                                     <Button
                                       size="sm"
@@ -479,6 +494,15 @@ export default function WavlakeExplore() {
                                     <ExternalLink className="h-3 w-3" />
                                   </a>
                                 </Button>
+                                <SuggestTrackModal track={musicTrack}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    title="Suggest to Peachy"
+                                  >
+                                    <MessageCircle className="h-3 w-3" />
+                                  </Button>
+                                </SuggestTrackModal>
                                 {isPeachy && (
                                   <Button
                                     size="sm"
@@ -602,7 +626,16 @@ export default function WavlakeExplore() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-medium line-clamp-1">{result.title || result.name}</h4>
+                                {result.type === 'track' ? (
+                                  <Link
+                                    to={`/wavlake/${result.id}`}
+                                    className="font-medium line-clamp-1 hover:underline hover:text-primary block"
+                                  >
+                                    {result.title || result.name}
+                                  </Link>
+                                ) : (
+                                  <h4 className="font-medium line-clamp-1">{result.title || result.name}</h4>
+                                )}
                                 <p className="text-sm text-muted-foreground line-clamp-1">
                                   {result.artist} {result.albumTitle && `• ${result.albumTitle}`}
                                 </p>
@@ -662,6 +695,27 @@ export default function WavlakeExplore() {
                                     >
                                       <Play className="h-3 w-3 mr-1" />
                                       Play
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={async () => {
+                                        try {
+                                          const { wavlakeAPI } = await import('@/lib/wavlake');
+                                          const track = await wavlakeAPI.getTrack(result.id);
+                                          const musicTrack = convertToMusicTrack(track);
+                                          setTrackToSuggest(musicTrack);
+                                        } catch {
+                                          toast({
+                                            title: 'Failed to Load Track',
+                                            description: 'Could not load track details.',
+                                            variant: 'destructive',
+                                          });
+                                        }
+                                      }}
+                                      title="Suggest to Peachy"
+                                    >
+                                      <MessageCircle className="h-3 w-3" />
                                     </Button>
                                     {isPeachy && (
                                       <Button
@@ -810,7 +864,12 @@ export default function WavlakeExplore() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-medium line-clamp-1">{track.title}</h4>
+                                <Link
+                                  to={`/wavlake/${track.id}`}
+                                  className="font-medium line-clamp-1 hover:underline hover:text-primary block"
+                                >
+                                  {track.title}
+                                </Link>
                                 <p className="text-sm text-muted-foreground line-clamp-1">
                                   {track.artist}
                                 </p>
@@ -845,6 +904,15 @@ export default function WavlakeExplore() {
                                     <ExternalLink className="h-3 w-3" />
                                   </a>
                                 </Button>
+                                <SuggestTrackModal track={convertToMusicTrack(track)}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    title="Suggest to Peachy"
+                                  >
+                                    <MessageCircle className="h-3 w-3" />
+                                  </Button>
+                                </SuggestTrackModal>
                                 {isPeachy && (
                                   <Button
                                     size="sm"
@@ -887,6 +955,24 @@ export default function WavlakeExplore() {
               onPrevious={currentTrackList.length > 1 ? handlePrevious : undefined}
               onClose={handleClosePlayer}
             />
+          </div>
+        )}
+
+        {/* Hidden modal for track suggestions from search results */}
+        {trackToSuggest && (
+          <div style={{ position: 'absolute', visibility: 'hidden' }}>
+            <SuggestTrackModal track={trackToSuggest}>
+              <button
+                ref={(el) => {
+                  if (el) {
+                    setTimeout(() => {
+                      el.click();
+                      setTrackToSuggest(null);
+                    }, 100);
+                  }
+                }}
+              />
+            </SuggestTrackModal>
           </div>
         )}
       </div>
