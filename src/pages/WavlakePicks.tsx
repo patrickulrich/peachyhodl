@@ -105,7 +105,7 @@ const WavlakePicks = () => {
             </div>
             
             {/* Action buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* Manage button for Peachy only */}
               {isPeachy && (
                 <ManagePicksDialog 

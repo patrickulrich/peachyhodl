@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SuggestTrackModal } from './SuggestTrackModal';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { 
   Play, 
@@ -69,7 +71,7 @@ export function TrackList({
             return (
               <div
                 key={track.id}
-                className={`p-4 hover:bg-muted/50 transition-colors cursor-pointer ${
+                className={`group p-4 hover:bg-muted/50 transition-colors cursor-pointer ${
                   isCurrentTrack ? 'bg-primary/5' : ''
                 }`}
                 onMouseEnter={() => setHoveredTrack(track.id)}
@@ -121,11 +123,15 @@ export function TrackList({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <h4 className={`font-medium truncate ${
-                          isCurrentTrack ? 'text-primary' : ''
-                        }`}>
+                        <Link 
+                          to={`/wavlake/${track.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`font-medium truncate hover:underline block ${
+                            isCurrentTrack ? 'text-primary' : 'hover:text-primary'
+                          }`}
+                        >
                           {track.title || 'Unknown Track'}
-                        </h4>
+                        </Link>
                         <p className="text-sm text-muted-foreground truncate">
                           {track.artist || 'Unknown Artist'}
                         </p>
@@ -160,6 +166,12 @@ export function TrackList({
                             )}
                           </div>
                         )}
+
+                        {/* Suggest to Peachy button */}
+                        <SuggestTrackModal 
+                          track={track}
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
 
                         {/* External link */}
                         <Button
