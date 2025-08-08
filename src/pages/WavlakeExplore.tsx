@@ -272,7 +272,7 @@ export default function WavlakeExplore() {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-8">
+      <div className={`container mx-auto px-4 py-8 ${currentTrack ? 'pb-48 sm:pb-8' : ''}`}>
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-4 flex items-center gap-3">
             <Music className="h-10 w-10 text-primary" />
@@ -299,7 +299,7 @@ export default function WavlakeExplore() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-4 items-end mb-6">
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
                   <div className="flex-1">
                     <Label htmlFor="genre-filter">Genre Filter</Label>
                     <Select value={selectedGenre} onValueChange={setSelectedGenre}>
@@ -330,7 +330,7 @@ export default function WavlakeExplore() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button onClick={() => refetchTrending()} disabled={isLoadingTrending}>
+                  <Button onClick={() => refetchTrending()} disabled={isLoadingTrending} className="w-full sm:w-auto sm:self-end">
                     <Filter className="h-4 w-4 mr-1" />
                     Apply Filters
                   </Button>
@@ -365,11 +365,12 @@ export default function WavlakeExplore() {
                             isCurrentTrack ? 'ring-2 ring-primary/20 bg-primary/5' : ''
                           }`}>
                             <CardContent className="p-4">
-                              <div className="flex items-center gap-4">
-                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium text-primary flex-shrink-0">
                                   {index + 1}
-                                </div>
-                                <div className="w-14 h-14 bg-muted rounded-lg flex items-center justify-center overflow-hidden relative group">
+                                  </div>
+                                  <div className="w-14 h-14 bg-muted rounded-lg flex items-center justify-center overflow-hidden relative group flex-shrink-0">
                                   {track.albumArtUrl || track.artistArtUrl ? (
                                     <img 
                                       src={track.albumArtUrl || track.artistArtUrl} 
@@ -394,12 +395,13 @@ export default function WavlakeExplore() {
                                       )}
                                     </Button>
                                   </div>
+                                  </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className={`font-medium truncate ${isCurrentTrack ? 'text-primary' : ''}`}>
+                                <div className="flex-1 min-w-0 ml-11 sm:ml-0">
+                                  <h4 className={`font-medium line-clamp-1 ${isCurrentTrack ? 'text-primary' : ''}`}>
                                     {track.title}
                                   </h4>
-                                  <p className="text-sm text-muted-foreground truncate">
+                                  <p className="text-sm text-muted-foreground line-clamp-1">
                                     {track.artist} {track.albumTitle && `• ${track.albumTitle}`}
                                   </p>
                                   <div className="flex items-center gap-2 mt-2">
@@ -413,7 +415,7 @@ export default function WavlakeExplore() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="hidden sm:flex items-center gap-2 sm:ml-auto">
                                   <Button
                                     size="sm"
                                     variant={trackIsPlaying ? "default" : "outline"}
@@ -448,6 +450,42 @@ export default function WavlakeExplore() {
                                     </Button>
                                   )}
                                 </div>
+                              </div>
+                              {/* Mobile buttons - shown below content */}
+                              <div className="flex sm:hidden flex-wrap items-center gap-2 mt-3 ml-11">
+                                <Button
+                                  size="sm"
+                                  variant={trackIsPlaying ? "default" : "outline"}
+                                  onClick={() => playTrack(musicTrack, trendingTracks.map(convertToMusicTrack))}
+                                >
+                                  {trackIsPlaying ? (
+                                    <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-2" />
+                                  ) : (
+                                    <Play className="h-3 w-3 mr-2" />
+                                  )}
+                                  {trackIsPlaying ? 'Playing' : 'Play'}
+                                </Button>
+                                <Button size="sm" variant="ghost" asChild>
+                                  <a 
+                                    href={`https://wavlake.com/track/${track.id}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    title="View on Wavlake"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                </Button>
+                                {isPeachy && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => addTrackToPicks(musicTrack)}
+                                    disabled={isAddingTrack}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add to Picks
+                                  </Button>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
@@ -560,8 +598,8 @@ export default function WavlakeExplore() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-medium truncate">{result.title || result.name}</h4>
-                                <p className="text-sm text-muted-foreground truncate">
+                                <h4 className="font-medium line-clamp-1">{result.title || result.name}</h4>
+                                <p className="text-sm text-muted-foreground line-clamp-1">
                                   {result.artist} {result.albumTitle && `• ${result.albumTitle}`}
                                 </p>
                                 <Badge variant="outline" className="mt-1 text-xs">
@@ -698,8 +736,8 @@ export default function WavlakeExplore() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-medium truncate">{album.title}</h4>
-                                <p className="text-sm text-muted-foreground truncate">
+                                <h4 className="font-medium line-clamp-1">{album.title}</h4>
+                                <p className="text-sm text-muted-foreground line-clamp-1">
                                   Album • {new Date(album.releaseDate).getFullYear()}
                                 </p>
                                 <Badge variant="outline" className="mt-1 text-xs">
@@ -768,8 +806,8 @@ export default function WavlakeExplore() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-medium truncate">{track.title}</h4>
-                                <p className="text-sm text-muted-foreground truncate">
+                                <h4 className="font-medium line-clamp-1">{track.title}</h4>
+                                <p className="text-sm text-muted-foreground line-clamp-1">
                                   {track.artist}
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
@@ -835,9 +873,9 @@ export default function WavlakeExplore() {
           </TabsContent>
         </Tabs>
 
-        {/* Music Player */}
+        {/* Music Player - Fixed to bottom on mobile, floating on desktop */}
         {currentTrack && (
-          <div className="fixed bottom-4 left-4 right-4 z-50">
+          <div className="fixed bottom-0 left-0 right-0 sm:bottom-4 sm:left-4 sm:right-4 z-50">
             <MusicPlayer
               track={currentTrack}
               autoPlay={isPlaying}

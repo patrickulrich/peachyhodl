@@ -29,20 +29,11 @@ export async function addTrackToPicksSimple(
     const existingTrackRefs: string[][] = [];
     if (currentPicksData && typeof currentPicksData === 'object' && 'tracks' in currentPicksData) {
       const currentTracks = (currentPicksData as { tracks?: MusicTrack[] }).tracks || [];
-      existingTrackRefs.push(...currentTracks.map((t) => ['r', t.id]));
+      // Filter out the track we're adding to avoid false duplicates from optimistic updates
+      const tracksToInclude = currentTracks.filter((t) => t.id !== track.id);
+      existingTrackRefs.push(...tracksToInclude.map((t) => ['r', t.id]));
     }
     
-    // Check if track is already in the list
-    const isAlreadyAdded = existingTrackRefs.some(([, id]) => id === track.id);
-    if (isAlreadyAdded) {
-      toast({
-        title: 'Track Already in Picks',
-        description: `"${track.title}" is already in your weekly picks.`,
-        variant: 'destructive',
-      });
-      return false;
-    }
-
     // Add new track reference to existing ones
     const allTrackRefs = [...existingTrackRefs, ['r', track.id]];
 
@@ -58,11 +49,7 @@ export async function addTrackToPicksSimple(
       ],
     });
 
-    // Only show success toast if not called from optimistic update context
-    toast({
-      title: 'Track Added to Picks',
-      description: `Added "${track.title}" by ${track.artist} to your weekly picks.`,
-    });
+    // Success toast is handled by the calling function to avoid duplicates
 
     // Wait a moment before invalidating to ensure the event has propagated
     setTimeout(() => {
