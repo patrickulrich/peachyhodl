@@ -13,7 +13,9 @@ import {
   Music, 
   User,
   QrCode,
-  Zap
+  Zap,
+  Maximize,
+  Minimize
 } from 'lucide-react';
 
 export default function PartyView() {
@@ -32,6 +34,7 @@ export default function PartyView() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Auto-play enabled
   const [zapQrCode, setZapQrCode] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const currentTrack = tracks[currentTrackIndex];
   const isLoading = isListLoading || isTracksLoading;
@@ -96,6 +99,75 @@ export default function PartyView() {
     }
   }, [tracks, currentTrack]);
 
+  // Enter fullscreen mode on mount
+  useEffect(() => {
+    const enterFullscreen = async () => {
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+          setIsFullscreen(true);
+        }
+      } catch (error) {
+        console.log('Could not enter fullscreen:', error);
+      }
+    };
+
+    // Enter fullscreen after a short delay to ensure the page is loaded
+    const timer = setTimeout(enterFullscreen, 100);
+
+    // Listen for fullscreen changes
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Exit fullscreen and navigate back
+  const handleClose = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        // Fallback if exit fullscreen fails
+      });
+    }
+    navigate('/wavlake-picks');
+  }, [navigate]);
+
+  // Toggle fullscreen
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.log('Could not toggle fullscreen:', error);
+    }
+  }, []);
+
+  // Handle ESC key to exit fullscreen (but stay on page)
+  useEffect(() => {
+    const handleEscKey = (e: KeyboardEvent) => {
+      // Note: ESC automatically exits fullscreen in most browsers
+      // This is just for handling any additional logic if needed
+      if (e.key === 'Escape' && !document.fullscreenElement) {
+        // Fullscreen was exited via ESC, update our state
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => document.removeEventListener('keydown', handleEscKey);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -129,15 +201,34 @@ export default function PartyView() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col">
-      {/* Close button */}
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => navigate('/wavlake-picks')}
-        className="absolute top-4 right-4 z-50 h-10 w-10 p-0 bg-background/80 backdrop-blur-sm hover:bg-background/90"
-      >
-        <X className="h-5 w-5" />
-      </Button>
+      {/* Control buttons */}
+      <div className="absolute top-4 right-4 z-50 flex gap-2">
+        {/* Fullscreen toggle button */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={toggleFullscreen}
+          className="h-10 w-10 p-0 bg-background/80 backdrop-blur-sm hover:bg-background/90"
+          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        >
+          {isFullscreen ? (
+            <Minimize className="h-5 w-5" />
+          ) : (
+            <Maximize className="h-5 w-5" />
+          )}
+        </Button>
+        
+        {/* Close button */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleClose}
+          className="h-10 w-10 p-0 bg-background/80 backdrop-blur-sm hover:bg-background/90"
+          title="Return to playlist"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
 
       {/* Top section - Artist Info and QR Code */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
