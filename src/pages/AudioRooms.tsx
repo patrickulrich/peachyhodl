@@ -27,6 +27,12 @@ const AudioRooms = () => {
           </p>
         </div>
 
+        {/* COMING SOON Notice */}
+        <div className="text-center py-4">
+          <p className="text-2xl font-bold text-orange-500">COMING SOON!</p>
+          <p className="text-sm text-muted-foreground">This feature is under development</p>
+        </div>
+
         {/* Audio Room Component */}
         <AudioRoom />
       </div>

@@ -99,18 +99,20 @@ export function AudioRoom() {
       // Start listening for signaling events first
       await startListening();
       
-      // Wait a moment for existing participants to be discovered
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Set joined state BEFORE announcing presence
+      // This is important so we don't initiate connections when we receive our own connect event
+      setIsJoined(true);
       
-      // Get current participants from available rooms - this should include everyone already in the room
+      // Wait a moment for existing participants to be discovered
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Get current participants from available rooms
       const currentRoom = availableRooms.get(roomId);
       const existingParticipants = currentRoom?.participants || [];
       
-      // Announce our presence to ALL participants (not just current ones we know about)
-      // We broadcast to everyone by not specifying participants, letting the NIP-100 system handle discovery
+      // Announce our presence to the room
+      // NRTC pattern: New joiner broadcasts connect, existing users will initiate connections TO us
       await publishConnect(roomId, []); // Empty array means broadcast to all
-      
-      setIsJoined(true);
       
       toast({
         title: 'Joined Room',
@@ -118,6 +120,7 @@ export function AudioRoom() {
       });
     } catch (error) {
       console.error('Failed to join room:', error);
+      setIsJoined(false); // Reset state on error
       toast({
         title: 'Failed to Join',
         description: 'Could not join the audio room. Please try again.',
@@ -156,7 +159,17 @@ export function AudioRoom() {
     if (!user) return;
 
     const handleConnect = async (event: WebRTCSignalingEvent) => {
+      // NRTC pattern: Only existing users (already joined) initiate connections to new users
+      // This prevents the "mutual kick" issue where both users try to initiate
       if (event.roomId === roomId && event.pubkey !== user.pubkey && isJoined) {
+        // Check if we already have a connection with this peer
+        // This prevents duplicate connections
+        const existingPeer = users.find(id => id === event.pubkey);
+        if (existingPeer) {
+          console.log(`Already connected to ${event.pubkey.substring(0, 8)}...`);
+          return;
+        }
+        
         // Someone else joined the room - we (existing user) should initiate connection TO them
         try {
           console.log(`New participant joined: ${event.pubkey.substring(0, 8)}... - initiating connection`);
@@ -178,6 +191,13 @@ export function AudioRoom() {
 
     const handleOfferEvent = async (event: WebRTCSignalingEvent) => {
       if (event.roomId === roomId && event.pubkey !== user.pubkey && event.content) {
+        // Check if we already have a connection with this peer
+        const existingPeer = users.find(id => id === event.pubkey);
+        if (existingPeer) {
+          console.log(`Already have connection with ${event.pubkey.substring(0, 8)}..., ignoring offer`);
+          return;
+        }
+        
         try {
           const content = event.content as { sdp: string };
           const answer = await onRTCOffer(event.pubkey, {
@@ -244,6 +264,7 @@ export function AudioRoom() {
     user,
     roomId,
     isJoined,
+    users,
     initRTCPeerConnection,
     onRTCOffer,
     onRTCAnswer,

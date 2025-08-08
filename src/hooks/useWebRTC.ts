@@ -104,6 +104,12 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
   // NRTC Pattern: Initialize peer connection and create offer
   const initRTCPeerConnection = useCallback(async (id: string, onIceCandidate?: (candidate: RTCIceCandidate) => void): Promise<RTCSessionDescriptionInit | null> => {
     try {
+      // Check if we already have a connection with this peer
+      if (peers[id]) {
+        console.log(`Peer connection already exists for ${id}, reusing existing connection`);
+        return null; // Don't create a new offer if connection exists
+      }
+
       const pc = new RTCPeerConnection(config);
 
       addLocalStream(pc);
@@ -151,6 +157,13 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
       console.log(`got offer from ${id}`, offer);
 
       if (!offer) return null;
+
+      // Check if we already have a connection with this peer
+      if (peers[id]) {
+        console.log(`Peer connection already exists for ${id}, closing old connection`);
+        peers[id].close();
+        delete peers[id];
+      }
 
       const pc = new RTCPeerConnection(config);
 
