@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useQueryClient } from '@tanstack/react-query';
 import { Trophy, Heart, Play, Plus, Music } from 'lucide-react';
 import { MusicPlayer } from '@/components/music/MusicPlayer';
 import type { MusicTrack } from '@/hooks/useMusicLists';
@@ -35,10 +37,13 @@ export default function WeeklySongsLeaderboard() {
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrackList, setCurrentTrackList] = useState<MusicTrack[]>([]);
+  const [addingTrackIds, setAddingTrackIds] = useState<Set<string>>(new Set());
 
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
   const { toast } = useToast();
+  const { mutateAsync: publishEvent } = useNostrPublish();
+  const queryClient = useQueryClient();
   
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
 
@@ -159,16 +164,126 @@ export default function WeeklySongsLeaderboard() {
   const addToPeachyPicks = useCallback(async (voteData: VoteData) => {
     if (!isPeachy) return;
 
+    // Prevent multiple simultaneous additions of the same track
+    if (addingTrackIds.has(voteData.trackId)) {
+      return;
+    }
+
     const musicTrack = await convertVoteToMusicTrack(voteData);
-    if (musicTrack) {
-      // TODO: Implement add to picks functionality
-      // This would use the same logic as in WavlakeExplore
+    if (!musicTrack) {
       toast({
-        title: 'Add to Picks',
-        description: 'This feature will be implemented soon!',
+        title: 'Failed to Add Track',
+        description: 'Could not load track details.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setAddingTrackIds(prev => new Set(prev).add(voteData.trackId));
+      
+      // Get current picks data for optimistic update
+      const currentPicksData = queryClient.getQueryData(['wavlake-picks', PEACHY_PUBKEY]);
+      
+      // Check if track is already added to prevent duplicates
+      if (currentPicksData && typeof currentPicksData === 'object' && 'tracks' in currentPicksData) {
+        const currentTracks = (currentPicksData as { tracks?: MusicTrack[] }).tracks || [];
+        const isAlreadyAdded = currentTracks.some((t) => t.id === musicTrack.id);
+        if (isAlreadyAdded) {
+          toast({
+            title: 'Track Already in Picks',
+            description: `"${musicTrack.title}" is already in your weekly picks.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(['wavlake-picks', PEACHY_PUBKEY], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object' || !('tracks' in oldData)) {
+          return {
+            tracks: [musicTrack],
+            title: "Peachy's Weekly Wavlake Picks",
+            updatedAt: Math.floor(Date.now() / 1000)
+          };
+        }
+        
+        const existingData = oldData as { tracks?: MusicTrack[] };
+        const currentTracks = existingData.tracks || [];
+        
+        // Double-check for duplicates during optimistic update
+        const isAlreadyInOptimisticData = currentTracks.some((t) => t.id === musicTrack.id);
+        if (isAlreadyInOptimisticData) {
+          // Return the data unchanged if duplicate found
+          return existingData;
+        }
+        
+        return {
+          ...existingData,
+          tracks: [...currentTracks, musicTrack],
+          updatedAt: Math.floor(Date.now() / 1000)
+        };
+      });
+
+      // Show success toast immediately
+      toast({
+        title: 'Track Added to Picks',
+        description: `Added "${musicTrack.title}" by ${musicTrack.artist} to your weekly picks.`,
+      });
+
+      // Then publish to Nostr in the background
+      const { addTrackToPicksSimple } = await import('@/lib/addTrackToPicks');
+      try {
+        const success = await addTrackToPicksSimple(musicTrack, publishEvent, (options) => {
+          // Only show error toasts, not success toasts (to prevent duplicates)
+          if (options.variant === 'destructive') {
+            toast(options);
+          }
+        }, queryClient);
+        
+        if (!success) {
+          // If addTrackToPicksSimple returned false, revert the optimistic update
+          queryClient.invalidateQueries({
+            queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+          });
+        }
+      } catch (publishError) {
+        console.warn('Failed to publish to Nostr:', publishError);
+        
+        // Revert the optimistic update on publish failure
+        queryClient.invalidateQueries({
+          queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+        });
+        
+        toast({
+          title: 'Failed to Save to Nostr',
+          description: 'Track was added locally but could not be saved to Nostr.',
+          variant: 'destructive',
+        });
+      }
+
+    } catch (error) {
+      console.error('Failed to add track to picks:', error);
+      
+      // Revert the optimistic update on error
+      queryClient.invalidateQueries({
+        queryKey: ['wavlake-picks', PEACHY_PUBKEY]
+      });
+      
+      toast({
+        title: 'Failed to Add Track',
+        description: 'Could not add track to your picks. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAddingTrackIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(voteData.trackId);
+        return newSet;
       });
     }
-  }, [isPeachy, convertVoteToMusicTrack, toast]);
+  }, [isPeachy, convertVoteToMusicTrack, toast, addingTrackIds, queryClient, publishEvent]);
 
   const handleNext = useCallback(() => {
     // TODO: Implement next track functionality
@@ -316,8 +431,13 @@ export default function WeeklySongsLeaderboard() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => addToPeachyPicks(vote)}
+                                disabled={addingTrackIds.has(vote.trackId)}
                               >
-                                <Plus className="h-3 w-3 mr-1" />
+                                {addingTrackIds.has(vote.trackId) ? (
+                                  <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                                ) : (
+                                  <Plus className="h-3 w-3 mr-1" />
+                                )}
                                 Add to Picks
                               </Button>
                             )}
@@ -344,8 +464,13 @@ export default function WeeklySongsLeaderboard() {
                               size="sm"
                               variant="outline"
                               onClick={() => addToPeachyPicks(vote)}
+                              disabled={addingTrackIds.has(vote.trackId)}
                             >
-                              <Plus className="h-3 w-3 mr-1" />
+                              {addingTrackIds.has(vote.trackId) ? (
+                                <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                              ) : (
+                                <Plus className="h-3 w-3 mr-1" />
+                              )}
                               Add to Picks
                             </Button>
                           )}
