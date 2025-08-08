@@ -31,7 +31,7 @@ export async function createNIP17TrackSuggestion(
     nip44: { encrypt: (pubkey: string, message: string) => Promise<string> }; // Required for NIP-17
   },
   recipientPubkey: string,
-  publishEvent: (event: unknown) => Promise<NostrEvent>
+  nostrEventPublisher: { event: (event: NostrEvent) => Promise<void> }
 ): Promise<void> {
 
   const senderPubkey = await signer.getPublicKey();
@@ -69,16 +69,15 @@ export async function createNIP17TrackSuggestion(
   const signedSeal = await signer.signEvent(sealEvent);
 
   // 3. Create gift wraps (kind 1059) - one for recipient, one for sender
-  await createAndPublishGiftWrap(signedSeal, recipientPubkey, signer, publishEvent);
-  await createAndPublishGiftWrap(signedSeal, senderPubkey, signer, publishEvent); // Copy to sender
+  await createAndPublishGiftWrap(signedSeal, recipientPubkey, nostrEventPublisher);
+  await createAndPublishGiftWrap(signedSeal, senderPubkey, nostrEventPublisher); // Copy to sender
 }
 
 // Create gift wrap for a recipient
 async function createAndPublishGiftWrap(
   sealEvent: NostrEvent,
   recipientPubkey: string,
-  signer: { nip44: { encrypt: (pubkey: string, message: string) => Promise<string> } },
-  publishEvent: (event: unknown) => Promise<NostrEvent>
+  nostrEventPublisher: { event: (event: NostrEvent) => Promise<void> }
 ): Promise<void> {
   // Generate ephemeral key for gift wrapping
   const ephemeralPrivateKey = generateSecretKey();
@@ -100,7 +99,8 @@ async function createAndPublishGiftWrap(
   // Sign with ephemeral private key using nostr-tools
   const signedGiftWrap = finalizeEvent(giftWrapEvent, ephemeralPrivateKey);
 
-  await publishEvent(signedGiftWrap);
+  // Publish directly without re-signing (already signed with ephemeral key)
+  await nostrEventPublisher.event(signedGiftWrap);
 }
 
 

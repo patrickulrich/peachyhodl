@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useNostr } from '@nostrify/react';
 import { useToast } from '@/hooks/useToast';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { createNIP17TrackSuggestion, type TrackSuggestionData } from '@/lib/nip17-proper';
@@ -36,7 +36,7 @@ export function SuggestTrackModal({ track, children, className }: SuggestTrackMo
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { user } = useCurrentUser();
-  const { mutateAsync: publishEvent } = useNostrPublish();
+  const { nostr } = useNostr();
   const { toast } = useToast();
 
 
@@ -79,7 +79,7 @@ export function SuggestTrackModal({ track, children, className }: SuggestTrackMo
           nip44: { encrypt: (pubkey: string, message: string) => Promise<string> }; 
         }, // Type assertion since we already checked nip44 exists
         PEACHY_PUBKEY,
-        publishEvent
+        nostr // Pass nostr.event directly to avoid re-signing gift wraps
       );
 
       toast({

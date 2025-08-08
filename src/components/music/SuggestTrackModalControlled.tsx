@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useNostr } from '@nostrify/react';
 import { useToast } from '@/hooks/useToast';
 import {
   Dialog,
@@ -32,7 +32,7 @@ export function SuggestTrackModalControlled({ track, open, onOpenChange }: Sugge
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { user } = useCurrentUser();
-  const { mutateAsync: publishEvent } = useNostrPublish();
+  const { nostr } = useNostr();
   const { toast } = useToast();
 
   // Reset comment when modal closes
@@ -100,7 +100,7 @@ export function SuggestTrackModalControlled({ track, open, onOpenChange }: Sugge
           nip44: { encrypt: (pubkey: string, message: string) => Promise<string> }; 
         }, // Type assertion since we already checked nip44 exists
         PEACHY_PUBKEY,
-        publishEvent
+        nostr // Pass nostr.event directly to avoid re-signing gift wraps
       );
 
       toast({
