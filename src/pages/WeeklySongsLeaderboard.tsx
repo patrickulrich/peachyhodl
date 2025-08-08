@@ -48,7 +48,7 @@ export default function WeeklySongsLeaderboard() {
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
 
   // Query all voting events
-  const { data: voteEvents = [], isLoading } = useQuery({
+  const { data: voteEvents = [], isLoading: isVotesLoading } = useQuery({
     queryKey: ['weekly-song-votes'],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
@@ -107,8 +107,66 @@ export default function WeeklySongsLeaderboard() {
       .slice(0, 10); // Top 10
   }, [voteEvents]);
 
-  // Convert vote data to MusicTrack for player
+  // Pre-fetch track data for all leaderboard items for faster playback and adding to picks
+  const { data: musicTracks = new Map<string, MusicTrack>(), isLoading: isTracksLoading } = useQuery({
+    queryKey: ['leaderboard-tracks', leaderboardData.map(v => v.trackId).join(',')],
+    queryFn: async () => {
+      if (leaderboardData.length === 0) return new Map<string, MusicTrack>();
+      
+      const { wavlakeAPI } = await import('@/lib/wavlake');
+      const trackMap = new Map<string, MusicTrack>();
+      
+      // Fetch all tracks in parallel for better performance
+      const trackPromises = leaderboardData.map(async (voteData) => {
+        try {
+          const track = await wavlakeAPI.getTrack(voteData.trackId);
+          const musicTrack: MusicTrack = {
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            album: track.albumTitle,
+            duration: track.duration,
+            image: track.albumArtUrl || track.artistArtUrl,
+            mediaUrl: track.mediaUrl,
+            albumArtUrl: track.albumArtUrl,
+            artistArtUrl: track.artistArtUrl,
+            artistId: track.artistId,
+            albumId: track.albumId,
+            artistNpub: track.artistNpub,
+            msatTotal: track.msatTotal,
+            releaseDate: track.releaseDate,
+            description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
+            publishedAt: new Date(track.releaseDate).getTime() / 1000,
+            urls: [{
+              url: track.mediaUrl,
+              mimeType: 'audio/mpeg',
+              quality: 'stream'
+            }],
+            createdAt: Math.floor(Date.now() / 1000),
+            pubkey: track.artistNpub,
+          };
+          trackMap.set(voteData.trackId, musicTrack);
+        } catch (error) {
+          console.error(`Failed to fetch track ${voteData.trackId}:`, error);
+        }
+      });
+      
+      await Promise.allSettled(trackPromises);
+      return trackMap;
+    },
+    enabled: leaderboardData.length > 0,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Convert vote data to MusicTrack for player (now instant from cache)
   const convertVoteToMusicTrack = useCallback(async (voteData: VoteData): Promise<MusicTrack | null> => {
+    // First check if we have it in our pre-fetched cache
+    const cachedTrack = musicTracks.get(voteData.trackId);
+    if (cachedTrack) {
+      return cachedTrack;
+    }
+    
+    // Fallback to API call if not in cache (shouldn't happen normally)
     try {
       const { wavlakeAPI } = await import('@/lib/wavlake');
       const track = await wavlakeAPI.getTrack(voteData.trackId);
@@ -142,7 +200,7 @@ export default function WeeklySongsLeaderboard() {
       console.error('Failed to convert vote to music track:', error);
       return null;
     }
-  }, []);
+  }, [musicTracks]);
 
   // Play track function
   const playTrack = useCallback(async (voteData: VoteData) => {
@@ -300,6 +358,8 @@ export default function WeeklySongsLeaderboard() {
   }, []);
 
   // Remove Peachy-only restriction - page is now visible to everyone
+  // Combined loading state for both votes and track data
+  const isLoading = isVotesLoading || isTracksLoading;
 
   return (
     <MainLayout>
@@ -362,9 +422,17 @@ export default function WeeklySongsLeaderboard() {
                               {index + 1}
                             </div>
                             
-                            {/* Album art placeholder */}
+                            {/* Album art */}
                             <div className="w-14 h-14 bg-muted rounded-lg flex items-center justify-center overflow-hidden relative group flex-shrink-0">
-                              <Music className="h-7 w-7 text-muted-foreground" />
+                              {musicTracks.get(vote.trackId)?.albumArtUrl || musicTracks.get(vote.trackId)?.image ? (
+                                <img
+                                  src={musicTracks.get(vote.trackId)?.albumArtUrl || musicTracks.get(vote.trackId)?.image}
+                                  alt={vote.trackTitle}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Music className="h-7 w-7 text-muted-foreground" />
+                              )}
                               
                               {/* Play overlay */}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
