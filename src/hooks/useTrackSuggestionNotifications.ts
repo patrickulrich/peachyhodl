@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { unwrapNIP17Message } from '@/lib/nip17-proper';
+import { useNotificationReadStatus } from '@/hooks/useNotificationReadStatus';
 
 // Peachy's pubkey
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -21,6 +22,7 @@ export interface TrackSuggestion {
 export function useTrackSuggestionNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { isNotificationRead } = useNotificationReadStatus();
   
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
 
@@ -62,7 +64,7 @@ export function useTrackSuggestionNotifications() {
                 senderPubkey: unwrapped.senderPubkey,
                 message: unwrapped.message,
                 createdAt: unwrapped.createdAt,
-                isRead: false, // TODO: Implement read status tracking
+                isRead: isNotificationRead(event.id, unwrapped.createdAt),
               });
             }
           } catch (processError) {
@@ -89,5 +91,7 @@ export function useTrackSuggestionNotifications() {
 // Hook to get unread count
 export function useUnreadSuggestionsCount() {
   const { data: suggestions = [] } = useTrackSuggestionNotifications();
-  return suggestions.filter(s => !s.isRead).length;
+  const { getUnreadCount } = useNotificationReadStatus();
+  
+  return getUnreadCount(suggestions.map(s => ({ id: s.id, createdAt: s.createdAt })));
 }

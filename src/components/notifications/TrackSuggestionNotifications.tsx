@@ -14,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTrackSuggestionNotifications, useUnreadSuggestionsCount } from '@/hooks/useTrackSuggestionNotifications';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNotificationReadStatus } from '@/hooks/useNotificationReadStatus';
 import { genUserName } from '@/lib/genUserName';
 import { Bell, Music, User, Clock } from 'lucide-react';
 
@@ -24,9 +25,18 @@ export function TrackSuggestionNotifications() {
   const { user } = useCurrentUser();
   const { data: suggestions = [] } = useTrackSuggestionNotifications();
   const unreadCount = useUnreadSuggestionsCount();
+  const { markAsViewed } = useNotificationReadStatus();
   const [isOpen, setIsOpen] = useState(false);
   
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
+  
+  // Mark notifications as viewed when dropdown is opened
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open && unreadCount > 0) {
+      markAsViewed();
+    }
+  };
   
   // Only show for Peachy
   if (!isPeachy) {
@@ -34,7 +44,7 @@ export function TrackSuggestionNotifications() {
   }
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+    <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4" />
@@ -80,8 +90,8 @@ export function TrackSuggestionNotifications() {
         {suggestions.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-center justify-center">
-              <Link to="/track-suggestions" className="text-sm text-muted-foreground hover:text-foreground">
+            <DropdownMenuItem className="text-center justify-center" asChild>
+              <Link to="/notifications" className="text-sm text-muted-foreground hover:text-foreground">
                 View all suggestions
               </Link>
             </DropdownMenuItem>

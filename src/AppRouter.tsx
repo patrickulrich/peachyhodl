@@ -13,6 +13,7 @@ import WavlakeAlbum from "./pages/WavlakeAlbum";
 import WavlakeTrack from "./pages/WavlakeTrack";
 import WavlakeExplore from "./pages/WavlakeExplore";
 import PartyView from "./pages/PartyView";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ export function AppRouter() {
         <Route path="/blog" element={<Blog />} />
         <Route path="/explore-wavlake" element={<WavlakeExplore />} />
         <Route path="/party-view" element={<PartyView />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/artist/:artistId" element={<WavlakeArtist />} />
         <Route path="/album/:albumId" element={<WavlakeAlbum />} />
         <Route path="/wavlake/:trackId" element={<WavlakeTrack />} />
