@@ -1,14 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
-import { Camera, User, Mic, Calendar, Music, BookOpen, Home } from "lucide-react";
+import { Camera, User, Mic, Calendar, Music, BookOpen, Home, Trophy } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  isPeachy?: boolean;
 }
 
-const menuItems = [
+const baseMenuItems = [
   { icon: Home, label: "Home", path: "/" },
   { icon: User, label: "About", path: "/about" },
   { icon: Camera, label: "Photos", path: "/photos" },
@@ -18,8 +19,13 @@ const menuItems = [
   { icon: Music, label: "Peachy's Weekly Wavlake Picks", path: "/wavlake-picks" },
 ];
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+const peachyOnlyItems = [
+  { icon: Trophy, label: "Weekly Songs Leaderboard", path: "/weekly-songs-leaderboard" },
+];
+
+export function Sidebar({ open, onClose, isPeachy = false }: SidebarProps) {
   const location = useLocation();
+  const menuItems = [...baseMenuItems, ...(isPeachy ? peachyOnlyItems : [])];
 
   return (
     <>

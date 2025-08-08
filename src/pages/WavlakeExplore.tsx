@@ -23,10 +23,10 @@ import {
   User, 
   Disc3, 
   ArrowLeft, 
-  ExternalLink, 
   Plus,
   Play,
-  MessageCircle
+  MessageCircle,
+  Heart
 } from 'lucide-react';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import type { WavlakeTrack } from '@/lib/wavlake';
@@ -50,7 +50,7 @@ export default function WavlakeExplore() {
   const [drillDownMode, setDrillDownMode] = useState<'trending' | 'search' | 'artist' | 'album'>('trending');
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
-  const [isAddingTrack, setIsAddingTrack] = useState(false);
+  const [addingTrackIds, setAddingTrackIds] = useState<Set<string>>(new Set());
   const [trackToSuggest, setTrackToSuggest] = useState<MusicTrack | null>(null);
   const [suggestModalOpen, setSuggestModalOpen] = useState(false);
   
@@ -154,9 +154,14 @@ export default function WavlakeExplore() {
   // Add track to Peachy's picks
   const addTrackToPicks = useCallback(async (track: MusicTrack) => {
     if (!isPeachy) return;
+    
+    // Prevent multiple simultaneous additions of the same track
+    if (addingTrackIds.has(track.id)) {
+      return;
+    }
 
     try {
-      setIsAddingTrack(true);
+      setAddingTrackIds(prev => new Set(prev).add(track.id));
       
       // Get current picks data for optimistic update
       const currentPicksData = queryClient.getQueryData(['wavlake-picks', PEACHY_PUBKEY]);
@@ -186,9 +191,18 @@ export default function WavlakeExplore() {
         }
         
         const existingData = oldData as { tracks?: MusicTrack[] };
+        const currentTracks = existingData.tracks || [];
+        
+        // Double-check for duplicates during optimistic update
+        const isAlreadyInOptimisticData = currentTracks.some((t) => t.id === track.id);
+        if (isAlreadyInOptimisticData) {
+          // Return the data unchanged if duplicate found
+          return existingData;
+        }
+        
         return {
           ...existingData,
-          tracks: [...(existingData.tracks || []), track],
+          tracks: [...currentTracks, track],
           updatedAt: Math.floor(Date.now() / 1000)
         };
       });
@@ -244,9 +258,57 @@ export default function WavlakeExplore() {
         variant: 'destructive',
       });
     } finally {
-      setIsAddingTrack(false);
+      setAddingTrackIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(track.id);
+        return newSet;
+      });
     }
-  }, [isPeachy, publishEvent, toast, queryClient]);
+  }, [isPeachy, publishEvent, toast, queryClient, addingTrackIds]);
+
+  // Vote for track function
+  const handleVoteForTrack = useCallback(async (track: MusicTrack) => {
+    if (!user) {
+      toast({
+        title: 'Login Required',
+        description: 'Please log in to vote for songs.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Create the voting event using Kind 30003 (Bookmark Sets)
+      const votingEvent = {
+        kind: 30003,
+        content: '',
+        tags: [
+          ['d', 'peachy-song-vote'], // Our specific identifier
+          ['title', 'Weekly Song Vote'],
+          ['description', 'My vote for the best song of the week'],
+          ['r', `https://wavlake.com/track/${track.id}`], // Reference to the Wavlake track
+          ['track_title', track.title],
+          ['track_artist', track.artist],
+          ['track_id', track.id]
+        ]
+      };
+
+      await publishEvent(votingEvent);
+
+      toast({
+        title: 'Vote Submitted!',
+        description: `Voted for "${track.title}" by ${track.artist}`,
+      });
+
+    } catch (error) {
+      console.error('Failed to submit vote:', error);
+      toast({
+        title: 'Vote Failed',
+        description: 'Could not submit your vote. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [user, publishEvent, toast]);
 
   // Music player functions
   const playTrack = useCallback((track: MusicTrack, trackList: MusicTrack[] = []) => {
@@ -440,15 +502,13 @@ export default function WavlakeExplore() {
                                     )}
                                     {trackIsPlaying ? 'Playing' : 'Play'}
                                   </Button>
-                                  <Button size="sm" variant="ghost" asChild>
-                                    <a 
-                                      href={`https://wavlake.com/track/${track.id}`} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      title="View on Wavlake"
-                                    >
-                                      <ExternalLink className="h-3 w-3" />
-                                    </a>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    onClick={() => handleVoteForTrack(musicTrack)}
+                                    title="Vote for this song"
+                                  >
+                                    <Heart className="h-3 w-3" />
                                   </Button>
                                   <SuggestTrackModal track={musicTrack}>
                                     <Button
@@ -464,9 +524,13 @@ export default function WavlakeExplore() {
                                       size="sm"
                                       variant="outline"
                                       onClick={() => addTrackToPicks(musicTrack)}
-                                      disabled={isAddingTrack}
+                                      disabled={addingTrackIds.has(musicTrack.id)}
                                     >
-                                      <Plus className="h-3 w-3 mr-1" />
+                                      {addingTrackIds.has(musicTrack.id) ? (
+                                        <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                                      ) : (
+                                        <Plus className="h-3 w-3 mr-1" />
+                                      )}
                                       Add to Picks
                                     </Button>
                                   )}
@@ -486,15 +550,13 @@ export default function WavlakeExplore() {
                                   )}
                                   {trackIsPlaying ? 'Playing' : 'Play'}
                                 </Button>
-                                <Button size="sm" variant="ghost" asChild>
-                                  <a 
-                                    href={`https://wavlake.com/track/${track.id}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    title="View on Wavlake"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => handleVoteForTrack(musicTrack)}
+                                  title="Vote for this song"
+                                >
+                                  <Heart className="h-3 w-3" />
                                 </Button>
                                 <SuggestTrackModal track={musicTrack}>
                                   <Button
@@ -510,9 +572,13 @@ export default function WavlakeExplore() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => addTrackToPicks(musicTrack)}
-                                    disabled={isAddingTrack}
+                                    disabled={addingTrackIds.has(musicTrack.id)}
                                   >
-                                    <Plus className="h-3 w-3 mr-1" />
+                                    {addingTrackIds.has(musicTrack.id) ? (
+                                      <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                                    ) : (
+                                      <Plus className="h-3 w-3 mr-1" />
+                                    )}
                                     Add to Picks
                                   </Button>
                                 )}
@@ -646,15 +712,29 @@ export default function WavlakeExplore() {
                                 </Badge>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button size="sm" variant="outline" asChild>
-                                  <a 
-                                    href={`https://wavlake.com/${result.type}/${result.id}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
+                                {result.type === 'track' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={async () => {
+                                      try {
+                                        const { wavlakeAPI } = await import('@/lib/wavlake');
+                                        const track = await wavlakeAPI.getTrack(result.id);
+                                        const musicTrack = convertToMusicTrack(track);
+                                        handleVoteForTrack(musicTrack);
+                                      } catch {
+                                        toast({
+                                          title: 'Failed to Vote',
+                                          description: 'Could not load track details.',
+                                          variant: 'destructive',
+                                        });
+                                      }
+                                    }}
+                                    title="Vote for this song"
                                   >
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                </Button>
+                                    <Heart className="h-3 w-3" />
+                                  </Button>
+                                )}
                                 {result.type === 'artist' && (
                                   <Button
                                     size="sm"
@@ -737,9 +817,13 @@ export default function WavlakeExplore() {
                                             });
                                           }
                                         }}
-                                        disabled={isAddingTrack}
+                                        disabled={addingTrackIds.has(result.id)}
                                       >
-                                        <Plus className="h-3 w-3 mr-1" />
+                                        {addingTrackIds.has(result.id) ? (
+                                          <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                                        ) : (
+                                          <Plus className="h-3 w-3 mr-1" />
+                                        )}
                                         Add to Picks
                                       </Button>
                                     )}
@@ -897,15 +981,13 @@ export default function WavlakeExplore() {
                                   <Play className="h-3 w-3 mr-1" />
                                   Play
                                 </Button>
-                                <Button size="sm" variant="ghost" asChild>
-                                  <a 
-                                    href={`https://wavlake.com/track/${track.id}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    title="View on Wavlake"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => handleVoteForTrack(convertToMusicTrack(track))}
+                                  title="Vote for this song"
+                                >
+                                  <Heart className="h-3 w-3" />
                                 </Button>
                                 <SuggestTrackModal track={convertToMusicTrack(track)}>
                                   <Button
@@ -921,9 +1003,13 @@ export default function WavlakeExplore() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => addTrackToPicks(convertToMusicTrack(track))}
-                                    disabled={isAddingTrack}
+                                    disabled={addingTrackIds.has(track.id)}
                                   >
-                                    <Plus className="h-3 w-3 mr-1" />
+                                    {addingTrackIds.has(track.id) ? (
+                                      <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                                    ) : (
+                                      <Plus className="h-3 w-3 mr-1" />
+                                    )}
                                     Add to Picks
                                   </Button>
                                 )}
