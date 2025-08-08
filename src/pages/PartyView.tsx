@@ -24,7 +24,10 @@ export default function PartyView() {
 
   const navigate = useNavigate();
   const { data: wavlakeList, isLoading: isListLoading } = useWavlakePicks();
-  const { data: tracks = [], isLoading: isTracksLoading } = useTracksFromList(wavlakeList?.tracks || []);
+  const { data: tracksOriginal = [], isLoading: isTracksLoading } = useTracksFromList(wavlakeList?.tracks || []);
+  
+  // Reverse tracks for countdown effect (start from last, count down to #1)
+  const tracks = [...tracksOriginal].reverse();
   
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Auto-play enabled
@@ -32,6 +35,9 @@ export default function PartyView() {
 
   const currentTrack = tracks[currentTrackIndex];
   const isLoading = isListLoading || isTracksLoading;
+  
+  // Calculate position number (counting down from total to 1)
+  const trackPosition = tracks.length - currentTrackIndex;
 
   // Fetch artist data for the current track
   const { data: artistData } = useWavlakeArtist(
@@ -184,9 +190,14 @@ export default function PartyView() {
                 <div className="space-y-2">
                   <h3 className="text-2xl font-bold">{currentTrack?.title || 'Unknown Track'}</h3>
                   <h4 className="text-lg font-semibold text-muted-foreground">{currentTrack?.album || 'Unknown Album'}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Track {currentTrackIndex + 1} of {tracks.length}
-                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <Badge variant="secondary" className="text-lg px-3 py-1 font-bold">
+                      #{trackPosition}
+                    </Badge>
+                    <p className="text-sm text-muted-foreground">
+                      of {tracks.length}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex justify-center gap-3">
