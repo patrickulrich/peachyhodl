@@ -122,7 +122,6 @@ export function LiveStreamPlayer({
             <video
               ref={videoRef}
               controls
-              muted
               playsInline
               className="w-full h-full object-contain"
               poster={image || undefined}

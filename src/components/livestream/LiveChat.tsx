@@ -103,11 +103,11 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="text-lg">Live Chat</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col p-0">
-        <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
+      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+        <ScrollArea className="flex-1 px-4 min-h-0" ref={scrollAreaRef}>
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">
               Loading chat...
@@ -117,7 +117,7 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
               No messages yet. Be the first to chat!
             </div>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-1 py-2">
               {messages.map((message) => (
                 <ChatMessage 
                   key={message.id} 
@@ -130,7 +130,7 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
         </ScrollArea>
         
         {user ? (
-          <form onSubmit={handleSendMessage} className="p-4 border-t">
+          <form onSubmit={handleSendMessage} className="p-4 border-t flex-shrink-0">
             <div className="flex gap-2">
               <Input
                 value={newMessage}
@@ -145,7 +145,7 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
             </div>
           </form>
         ) : (
-          <div className="p-4 border-t text-center text-sm text-muted-foreground">
+          <div className="p-4 border-t text-center text-sm text-muted-foreground flex-shrink-0">
             Sign in to participate in chat
           </div>
         )}
