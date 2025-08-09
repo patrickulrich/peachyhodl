@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import Hls from "hls.js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Wifi } from "lucide-react";
@@ -17,13 +18,79 @@ export function LiveStreamPlayer({
   participantCount = 0,
 }: LiveStreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
   useEffect(() => {
-    if (videoRef.current && streamUrl) {
-      // For HLS streams (m3u8), you would typically use a library like hls.js
-      // For now, we'll use native video element for compatible streams
-      videoRef.current.src = streamUrl;
+    if (!videoRef.current || !streamUrl) return;
+
+    const video = videoRef.current;
+
+    // Clean up previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
     }
+
+    if (streamUrl.endsWith(".m3u8")) {
+      // Use HLS.js for .m3u8 streams
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: false,
+          lowLatencyMode: true,
+          backBufferLength: 90,
+        });
+        
+        hlsRef.current = hls;
+        hls.loadSource(streamUrl);
+        hls.attachMedia(video);
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log("HLS manifest parsed, starting playback");
+          video.play().catch((e) => {
+            console.log("Autoplay prevented:", e);
+          });
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error("HLS error:", data);
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.log("Network error, trying to recover...");
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.log("Media error, trying to recover...");
+                hls.recoverMediaError();
+                break;
+              default:
+                console.log("Fatal error, cannot recover");
+                hls.destroy();
+                break;
+            }
+          }
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Fallback for Safari which has native HLS support
+        video.src = streamUrl;
+        video.play().catch((e) => {
+          console.log("Autoplay prevented:", e);
+        });
+      } else {
+        console.error("HLS is not supported in this browser");
+      }
+    } else {
+      // For non-HLS streams, use direct source
+      video.src = streamUrl;
+    }
+
+    // Cleanup function
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
   }, [streamUrl]);
 
   return (
@@ -55,7 +122,6 @@ export function LiveStreamPlayer({
             <video
               ref={videoRef}
               controls
-              autoPlay
               muted
               playsInline
               className="w-full h-full object-contain"

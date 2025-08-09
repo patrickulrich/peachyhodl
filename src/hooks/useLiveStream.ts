@@ -25,22 +25,42 @@ export function useLiveStream() {
   return useQuery({
     queryKey: ["livestream", PEACHY_PUBKEY],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
       
-      // Query for Peachy's live events (kind: 30311)
-      const events = await nostr.query(
+      // Query for live events where Peachy is a participant
+      const allEvents = await nostr.query(
         [
           {
             kinds: [30311],
-            authors: [PEACHY_PUBKEY],
-            limit: 10,
+            limit: 100,
           },
         ],
         { signal }
       );
+      
+      // Filter for events where Peachy is a participant
+      const peachyEvents = allEvents.filter(event => {
+        // Check if Peachy's pubkey is in any p tag
+        return event.tags.some(tag => 
+          tag[0] === 'p' && tag[1] === PEACHY_PUBKEY
+        );
+      });
+      
+      // Log details about any events we find
+      if (peachyEvents.length > 0) {
+        console.log("Events with Peachy as participant:");
+        peachyEvents.slice(0, 3).forEach((event, i) => {
+          const status = event.tags.find(([tag]) => tag === "status")?.[1];
+          const title = event.tags.find(([tag]) => tag === "title")?.[1];
+          const streaming = event.tags.find(([tag]) => tag === "streaming")?.[1];
+          const peachyTag = event.tags.find(tag => tag[0] === 'p' && tag[1] === PEACHY_PUBKEY);
+          const role = peachyTag?.[3] || "Participant";
+          console.log(`  Event ${i + 1}: status="${status}", role="${role}", title="${title}", streaming="${streaming?.substring(0, 50)}..."`);
+        });
+      }
 
-      // Find the most recent live event
-      const liveEvent = events
+      // Find the most recent live event where Peachy is a participant
+      const liveEvent = peachyEvents
         .sort((a, b) => b.created_at - a.created_at)
         .find((event) => {
           const statusTag = event.tags.find(([tag]) => tag === "status");
@@ -72,7 +92,7 @@ export function useLiveStream() {
           role,
         }));
 
-      return {
+      const streamData = {
         event: liveEvent,
         isLive: true,
         streamUrl: getTagValue("streaming"),
@@ -81,6 +101,9 @@ export function useLiveStream() {
         image: getTagValue("image"),
         participants,
       } as LiveStreamData;
+      
+      
+      return streamData;
     },
     refetchInterval: 30000, // Refetch every 30 seconds to check if still live
   });

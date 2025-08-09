@@ -28,6 +28,9 @@ const Index = () => {
   });
 
   const { data: liveStreamData } = useLiveStream();
+  
+  // Check if livestream should show
+  const shouldShowLiveStream = liveStreamData?.isLive && liveStreamData?.streamUrl;
   const { data: pictures = [], isLoading: isLoadingPictures } = usePictures(6);
   const { data: wavlakeList, isLoading: isLoadingMusic } = useWavlakePicks();
   
@@ -61,7 +64,7 @@ const Index = () => {
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
         {/* Live Stream or Hero Section */}
-        {liveStreamData?.isLive && liveStreamData.streamUrl ? (
+        {shouldShowLiveStream ? (
           <section className="mb-12">
             <h2 className="text-3xl font-bold mb-6 flex items-center gap-2">
               <Sparkles className="h-8 w-8 text-primary" />
@@ -70,7 +73,7 @@ const Index = () => {
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <LiveStreamPlayer
-                  streamUrl={liveStreamData.streamUrl}
+                  streamUrl={liveStreamData.streamUrl!}
                   title={liveStreamData.title}
                   image={liveStreamData.image}
                   participantCount={liveStreamData.participants.length}

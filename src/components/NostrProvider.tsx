@@ -33,11 +33,30 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
-        return new Map([[relayUrl.current, filters]]);
+        // Always query the selected relay, Damus relay, and Nostr.band relay for better coverage
+        const relaysToQuery = new Map();
+        relaysToQuery.set(relayUrl.current, filters);
+        
+        // Always include Damus relay if it's not already the selected relay
+        const damusRelay = 'wss://relay.damus.io';
+        if (relayUrl.current !== damusRelay) {
+          relaysToQuery.set(damusRelay, filters);
+        }
+        
+        // Always include Nostr.band relay for livestream events
+        const nostrBandRelay = 'wss://relay.nostr.band';
+        if (relayUrl.current !== nostrBandRelay) {
+          relaysToQuery.set(nostrBandRelay, filters);
+        }
+        
+        return relaysToQuery;
       },
       eventRouter(_event: NostrEvent) {
         // Publish to the selected relay
         const allRelays = new Set<string>([relayUrl.current]);
+        
+        // Always include Damus relay for publishing
+        allRelays.add('wss://relay.damus.io');
 
         // Also publish to the preset relays, capped to 5
         for (const { url } of (presetRelays ?? [])) {
