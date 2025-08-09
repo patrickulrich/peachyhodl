@@ -72,15 +72,19 @@ const Index = () => {
             </h2>
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                <LiveStreamPlayer
-                  streamUrl={liveStreamData.streamUrl!}
-                  title={liveStreamData.title}
-                  image={liveStreamData.image}
-                  participantCount={liveStreamData.participants.length}
-                />
+                <div className="h-[500px] lg:h-[400px] xl:h-[500px]">
+                  <LiveStreamPlayer
+                    streamUrl={liveStreamData.streamUrl!}
+                    title={liveStreamData.title}
+                    image={liveStreamData.image}
+                    participantCount={liveStreamData.participants.length}
+                  />
+                </div>
               </div>
-              <div className="lg:col-span-1 h-[500px]">
-                <LiveChat liveEventId={liveEventId} liveEvent={liveStreamData.event} />
+              <div className="lg:col-span-1">
+                <div className="h-[500px] lg:h-[400px] xl:h-[500px]">
+                  <LiveChat liveEventId={liveEventId} liveEvent={liveStreamData.event} />
+                </div>
               </div>
             </div>
           </section>

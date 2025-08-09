@@ -35,20 +35,26 @@ export function LiveStreamPlayer({
       // Use HLS.js for .m3u8 streams
       if (Hls.isSupported()) {
         const hls = new Hls({
+          debug: false,
           enableWorker: false,
           lowLatencyMode: true,
           backBufferLength: 90,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 300,
+          startLevel: -1,
+          autoStartLoad: true,
         });
         
         hlsRef.current = hls;
-        hls.loadSource(streamUrl);
-        hls.attachMedia(video);
         
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          console.log("HLS manifest parsed, starting playback");
-          video.play().catch((e) => {
-            console.log("Autoplay prevented:", e);
-          });
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+          console.log("HLS media attached");
+          hls.loadSource(streamUrl);
+        });
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+          console.log("HLS manifest parsed, levels:", data.levels.length);
+          // Don't autoplay, let user click play button
         });
 
         hls.on(Hls.Events.ERROR, (event, data) => {
@@ -70,12 +76,13 @@ export function LiveStreamPlayer({
             }
           }
         });
+
+        // Attach media first, then load source
+        hls.attachMedia(video);
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Fallback for Safari which has native HLS support
+        console.log("Using native HLS support");
         video.src = streamUrl;
-        video.play().catch((e) => {
-          console.log("Autoplay prevented:", e);
-        });
       } else {
         console.error("HLS is not supported in this browser");
       }
@@ -94,8 +101,8 @@ export function LiveStreamPlayer({
   }, [streamUrl]);
 
   return (
-    <Card className="overflow-hidden bg-black">
-      <CardContent className="p-0 relative">
+    <Card className="overflow-hidden bg-black h-full">
+      <CardContent className="p-0 relative h-full">
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
           <Badge variant="destructive" className="flex items-center gap-1">
             <Wifi className="h-3 w-3" />
@@ -117,7 +124,7 @@ export function LiveStreamPlayer({
           </div>
         )}
 
-        <div className="aspect-video bg-black">
+        <div className="h-full bg-black">
           {streamUrl.endsWith(".m3u8") ? (
             <video
               ref={videoRef}

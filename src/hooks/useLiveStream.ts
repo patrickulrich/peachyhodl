@@ -46,18 +46,6 @@ export function useLiveStream() {
         );
       });
       
-      // Log details about any events we find
-      if (peachyEvents.length > 0) {
-        console.log("Events with Peachy as participant:");
-        peachyEvents.slice(0, 3).forEach((event, i) => {
-          const status = event.tags.find(([tag]) => tag === "status")?.[1];
-          const title = event.tags.find(([tag]) => tag === "title")?.[1];
-          const streaming = event.tags.find(([tag]) => tag === "streaming")?.[1];
-          const peachyTag = event.tags.find(tag => tag[0] === 'p' && tag[1] === PEACHY_PUBKEY);
-          const role = peachyTag?.[3] || "Participant";
-          console.log(`  Event ${i + 1}: status="${status}", role="${role}", title="${title}", streaming="${streaming?.substring(0, 50)}..."`);
-        });
-      }
 
       // Find the most recent live event where Peachy is a participant
       const liveEvent = peachyEvents
