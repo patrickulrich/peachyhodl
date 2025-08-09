@@ -116,13 +116,6 @@ export function LiveStreamPlayer({
           )}
         </div>
         
-        {title && (
-          <div className="absolute bottom-4 left-4 right-4 z-10">
-            <h3 className="text-white text-lg font-semibold bg-black/70 backdrop-blur-sm px-3 py-2 rounded">
-              {title}
-            </h3>
-          </div>
-        )}
 
         <div className="h-full bg-black">
           {streamUrl.endsWith(".m3u8") ? (

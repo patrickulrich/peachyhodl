@@ -17,13 +17,15 @@ interface LiveChatProps {
   liveEvent: NostrEvent | null;
 }
 
-function ChatMessage({ message }: { message: NostrEvent }) {
+function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean }) {
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(message.pubkey);
 
   return (
-    <div className="flex gap-3 p-3 hover:bg-muted/50 transition-colors">
+    <div className={`flex gap-3 p-3 hover:bg-muted/50 transition-all duration-300 ${
+      isNew ? 'animate-in slide-in-from-bottom-2 bg-primary/5 border-l-2 border-primary' : ''
+    }`}>
       <Avatar className="h-8 w-8">
         <AvatarImage src={metadata?.picture} alt={displayName} />
         <AvatarFallback>{displayName[0].toUpperCase()}</AvatarFallback>
@@ -46,17 +48,43 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
   const { user } = useCurrentUser();
   const { mutate: publishMessage } = useNostrPublish();
   const [newMessage, setNewMessage] = useState("");
+  const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLength = useRef(messages.length);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Track new messages and auto-scroll
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    // Detect new messages
+    if (messages.length > prevMessagesLength.current) {
+      const newMessages = messages.slice(prevMessagesLength.current);
+      setNewMessageIds(prev => {
+        const newIds = new Set(prev);
+        newMessages.forEach(msg => newIds.add(msg.id));
+        return newIds;
+      });
+      
+      // Auto-scroll to bottom
+      if (scrollAreaRef.current) {
+        const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        }
       }
     }
+    
+    prevMessagesLength.current = messages.length;
   }, [messages]);
+
+  // Remove new message highlighting after a delay
+  useEffect(() => {
+    if (newMessageIds.size > 0) {
+      const timer = setTimeout(() => {
+        setNewMessageIds(new Set());
+      }, 3000); // Remove highlighting after 3 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [newMessageIds]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +119,11 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
           ) : (
             <div className="space-y-1">
               {messages.map((message) => (
-                <ChatMessage key={message.id} message={message} />
+                <ChatMessage 
+                  key={message.id} 
+                  message={message} 
+                  isNew={newMessageIds.has(message.id)}
+                />
               ))}
             </div>
           )}
