@@ -4,7 +4,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Send, Smile } from "lucide-react";
 import { useLiveChat } from "@/hooks/useLiveChat";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -37,11 +38,38 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
             {new Date(message.created_at * 1000).toLocaleTimeString()}
           </span>
         </div>
-        <p className="text-sm break-words">{message.content}</p>
+        <p className="text-sm break-all whitespace-pre-wrap overflow-wrap-anywhere">{message.content}</p>
       </div>
     </div>
   );
 }
+
+// Common emojis for quick selection
+const EMOJI_LIST = [
+  "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇",
+  "🙂", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋",
+  "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐",
+  "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😔", "😪",
+  "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🥵", "🥶", "😵", "🤯",
+  "😎", "🤓", "🧐", "😕", "😟", "🙁", "☹️", "😮", "😯", "😲",
+  "😳", "🥺", "😦", "😧", "😨", "😰", "😥", "😢", "😭", "😱",
+  "😖", "😣", "😞", "😓", "😩", "😫", "🥱", "😤", "😡", "😠",
+  "🤬", "😈", "👿", "💀", "☠️", "💩", "🤡", "👹", "👺", "👻",
+  "👽", "👾", "🤖", "😺", "😸", "😹", "😻", "😼", "😽", "🙀",
+  "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔",
+  "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "☮️",
+  "✝️", "☪️", "🕉️", "☸️", "✡️", "🔯", "🕎", "☯️", "☦️", "🛐",
+  "⛎", "♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐",
+  "♑", "♒", "♓", "🆔", "⚛️", "🉑", "☢️", "☣️", "📴", "📳",
+  "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞",
+  "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍",
+  "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝",
+  "🙏", "✍️", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃",
+  "🔥", "💯", "✨", "⚡", "💫", "🌟", "⭐", "🌈", "☀️", "🌤️",
+  "⛅", "🌥️", "☁️", "🌦️", "🌧️", "⛈️", "🌩️", "❄️", "☃️", "⛄",
+  "🎉", "🎊", "🎈", "🎁", "🎀", "🎄", "🎃", "🎆", "🎇", "🧨",
+  "✅", "❌", "❓", "❗", "‼️", "⁉️", "💤", "💢", "💬", "💭"
+];
 
 export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
   const { data: messages = [], isLoading } = useLiveChat(liveEventId);
@@ -49,7 +77,9 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
   const { mutate: publishMessage } = useNostrPublish();
   const [newMessage, setNewMessage] = useState("");
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+  const [emojiPopoverOpen, setEmojiPopoverOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const prevMessagesLength = useRef(messages.length);
 
   // Track new messages and auto-scroll
@@ -99,6 +129,7 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
     });
 
     setNewMessage("");
+    setEmojiPopoverOpen(false);
   };
 
   return (
@@ -133,12 +164,43 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
           <form onSubmit={handleSendMessage} className="p-4 border-t flex-shrink-0">
             <div className="flex gap-2">
               <Input
+                ref={inputRef}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
                 className="flex-1"
                 disabled={!liveEvent}
               />
+              <Popover open={emojiPopoverOpen} onOpenChange={setEmojiPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    type="button" 
+                    size="icon" 
+                    variant="ghost"
+                    disabled={!liveEvent}
+                  >
+                    <Smile className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-2" align="end">
+                  <div className="grid grid-cols-10 gap-1">
+                    {EMOJI_LIST.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="p-1 hover:bg-muted rounded text-lg transition-colors"
+                        onClick={() => {
+                          setNewMessage(prev => prev + emoji);
+                          setEmojiPopoverOpen(false);
+                          inputRef.current?.focus();
+                        }}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Button type="submit" size="icon" disabled={!liveEvent || !newMessage.trim()}>
                 <Send className="h-4 w-4" />
               </Button>
