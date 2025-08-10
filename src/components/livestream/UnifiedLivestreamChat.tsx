@@ -17,9 +17,8 @@ import { cn } from "@/lib/utils";
 
 const PEACHY_HEX = '0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820';
 
-interface ExtendedNostrEvent extends NostrEvent {
-  isStreamUpdate?: boolean;
-}
+// Using NostrEvent directly - no extensions needed for chat messages
+type ExtendedNostrEvent = NostrEvent;
 
 type UnifiedMessage = {
   id: string;
@@ -32,7 +31,6 @@ type UnifiedMessage = {
     color?: string;
   };
   isPeachy?: boolean;
-  isStreamUpdate?: boolean;
   isMod?: boolean;
   isSubscriber?: boolean;
   isVip?: boolean;
@@ -44,11 +42,10 @@ type UnifiedMessage = {
 interface NostrChatMessageProps {
   message: ExtendedNostrEvent;
   isPeachy?: boolean;
-  isStreamUpdate?: boolean;
   isNew?: boolean;
 }
 
-function NostrChatMessage({ message, isPeachy, isStreamUpdate, isNew }: NostrChatMessageProps) {
+function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(message.pubkey);
@@ -62,8 +59,7 @@ function NostrChatMessage({ message, isPeachy, isStreamUpdate, isNew }: NostrCha
       className={cn(
         "p-4 rounded-lg border transition-all duration-300",
         isPeachy && "bg-gradient-to-r from-pink-500/10 to-pink-400/5 border-pink-500/30",
-        isStreamUpdate && "bg-gradient-to-r from-green-500/10 to-emerald-400/5 border-green-500/30",
-        !isPeachy && !isStreamUpdate && "bg-card hover:bg-accent/5",
+        !isPeachy && "bg-card hover:bg-accent/5",
         isNew && "animate-in slide-in-from-bottom-2"
       )}
     >
@@ -86,11 +82,6 @@ function NostrChatMessage({ message, isPeachy, isStreamUpdate, isNew }: NostrCha
             {isPeachy && (
               <Badge variant="default" className="bg-gradient-to-r from-pink-500 to-pink-600 text-white border-0">
                 HOST
-              </Badge>
-            )}
-            {isStreamUpdate && (
-              <Badge variant="default" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0">
-                UPDATE
               </Badge>
             )}
             <span className="text-xs text-muted-foreground ml-auto">{time}</span>
@@ -294,58 +285,47 @@ function useLivestreamData() {
       const now = Math.floor(Date.now() / 1000);
       const oneDayAgo = now - (24 * 60 * 60);
 
-      // Fetch live events and recent messages
-      const [liveEvents, chatMessages, streamUpdates] = await Promise.all([
-        // Get Peachy's live events (kind 30311)
-        nostr.query([{ 
-          kinds: [30311], 
-          authors: [PEACHY_HEX],
-          since: oneDayAgo
-        }], { signal }),
-        
-        // Get chat messages (kind 1311)
-        nostr.query([{ 
-          kinds: [1311],
-          since: oneDayAgo,
-          limit: 200
-        }], { signal }),
-        
-        // Get Peachy's regular notes as stream updates (kind 1)
-        nostr.query([{ 
-          kinds: [1], 
-          authors: [PEACHY_HEX],
-          since: oneDayAgo,
-          limit: 20
-        }], { signal })
-      ]);
+      // Get live events where Peachy is a participant (same as homepage)
+      const allEvents = await nostr.query([{
+        kinds: [30311],
+        limit: 100,
+      }], { signal });
 
-      // Find the most recent live event
-      const liveEvent = liveEvents.sort((a, b) => b.created_at - a.created_at)[0];
+      // Filter for events where Peachy is a participant
+      const peachyEvents = allEvents.filter(event => {
+        // Check if Peachy's pubkey is in any p tag
+        return event.tags.some(tag => 
+          tag[0] === 'p' && tag[1] === PEACHY_HEX
+        );
+      });
+
+
+      // Find the most recent live event (same as homepage logic)
+      const liveEvent = peachyEvents
+        .sort((a, b) => b.created_at - a.created_at)[0];
       
-      let relevantMessages = chatMessages;
+      // Get chat messages for that specific live event (like homepage)
+      let allMessages: ExtendedNostrEvent[] = [];
       
-      // If we have a live event, filter messages that belong to it
       if (liveEvent) {
         const dTag = liveEvent.tags.find(([t]) => t === "d")?.[1];
+        
         if (dTag) {
           const eventATag = `30311:${liveEvent.pubkey}:${dTag}`;
-          relevantMessages = chatMessages.filter(msg => {
-            const aTags = msg.tags.filter(([t]) => t === 'a');
-            return aTags.some(tag => tag[1] === eventATag);
-          });
+          
+          // Query messages directly with #a filter (same as homepage)
+          const chatMessages = await nostr.query([{
+            kinds: [1311],
+            "#a": [eventATag],
+            since: oneDayAgo,
+            limit: 200
+          }], { signal });
+          
+          allMessages = chatMessages
+            .sort((a, b) => a.created_at - b.created_at)
+            .slice(-300); // Keep last 300 messages
         }
       }
-
-      // Mark stream updates
-      const updatesWithFlag: ExtendedNostrEvent[] = streamUpdates.map(update => ({
-        ...update,
-        isStreamUpdate: true
-      }));
-
-      // Combine and sort all messages
-      const allMessages: ExtendedNostrEvent[] = [...relevantMessages, ...updatesWithFlag]
-        .sort((a, b) => a.created_at - b.created_at)
-        .slice(-300); // Keep last 300 messages
 
       return {
         liveEvent,
@@ -373,11 +353,12 @@ export function UnifiedLivestreamChat() {
   const nostrMessages = nostrData?.messages || [];
   const liveEvent = nostrData?.liveEvent;
 
+
   // Merge and sort all messages by timestamp
   const unifiedMessages = useMemo(() => {
     const unified: UnifiedMessage[] = [];
 
-    // Convert Nostr messages
+    // Convert Nostr messages (only kind 1311 chat messages)
     nostrMessages.forEach(msg => {
       unified.push({
         id: msg.id,
@@ -389,7 +370,6 @@ export function UnifiedLivestreamChat() {
           avatar: undefined
         },
         isPeachy: msg.pubkey === PEACHY_HEX,
-        isStreamUpdate: msg.isStreamUpdate,
         nostrEvent: msg
       });
     });
@@ -572,7 +552,6 @@ export function UnifiedLivestreamChat() {
                             key={message.id}
                             message={message.nostrEvent}
                             isPeachy={message.isPeachy}
-                            isStreamUpdate={message.isStreamUpdate}
                             isNew={newMessageIds.has(message.id)}
                           />
                         );
