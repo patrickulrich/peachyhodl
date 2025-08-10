@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Twitch, Zap, LogOut, LogIn } from "lucide-react";
+import { Loader2, Twitch, Zap, LogOut, LogIn, Gift, Heart, Users, Sparkles, Crown, UserPlus } from "lucide-react";
 import { useNostr } from "@nostrify/react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthor } from "@/hooks/useAuthor";
@@ -118,54 +118,166 @@ function TwitchChatMessage({ message, isNew }: TwitchChatMessageProps) {
   const isPeachy = message.username.toLowerCase() === TWITCH_CHANNEL.toLowerCase() || 
                    message.isBroadcaster;
 
+  // Special event styling
+  const isSpecialEvent = message.messageType && message.messageType !== 'chat';
+  
+  const getEventIcon = () => {
+    switch (message.messageType) {
+      case 'subscription': return <Crown className="h-5 w-5" />;
+      case 'giftsub': return <Gift className="h-5 w-5" />;
+      case 'bits': return <Sparkles className="h-5 w-5" />;
+      case 'raid': return <Users className="h-5 w-5" />;
+      case 'announcement': return <Heart className="h-5 w-5" />;
+      case 'follow': return <UserPlus className="h-5 w-5" />;
+      default: return null;
+    }
+  };
+
+  const getEventColor = () => {
+    switch (message.messageType) {
+      case 'subscription': return 'from-yellow-500/20 to-amber-500/10 border-yellow-500/40';
+      case 'giftsub': return 'from-blue-500/20 to-cyan-500/10 border-blue-500/40';
+      case 'bits': return 'from-purple-600/20 to-pink-500/10 border-purple-500/40';
+      case 'raid': return 'from-green-500/20 to-emerald-500/10 border-green-500/40';
+      case 'announcement': return 'from-red-500/20 to-pink-500/10 border-red-500/40';
+      case 'follow': return 'from-indigo-500/20 to-blue-500/10 border-indigo-500/40';
+      default: return '';
+    }
+  };
+
+  const getSubTierLabel = (tier?: string) => {
+    switch (tier) {
+      case '1000': return 'Tier 1';
+      case '2000': return 'Tier 2';
+      case '3000': return 'Tier 3';
+      case 'Prime': return 'Prime';
+      default: return '';
+    }
+  };
+
   return (
     <div 
       className={cn(
         "p-4 rounded-lg border transition-all duration-300",
-        isPeachy && "bg-gradient-to-r from-purple-500/10 to-purple-400/5 border-purple-500/30",
-        !isPeachy && "bg-card hover:bg-accent/5",
+        isSpecialEvent && `bg-gradient-to-r ${getEventColor()} shadow-lg`,
+        isPeachy && !isSpecialEvent && "bg-gradient-to-r from-purple-500/10 to-purple-400/5 border-purple-500/30",
+        !isPeachy && !isSpecialEvent && "bg-card hover:bg-accent/5",
         isNew && "animate-in slide-in-from-bottom-2"
       )}
     >
       <div className="flex items-start gap-3">
-        <div className={cn(
-          "h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm",
-          isPeachy ? "bg-purple-500" : "bg-purple-600"
+        {isSpecialEvent ? (
+          <div className="h-10 w-10 rounded-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg">
+            {getEventIcon()}
+          </div>
+        ) : (
+          <div className={cn(
+            "h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm",
+            isPeachy ? "bg-purple-500" : "bg-purple-600"
+          )}
+          style={{ backgroundColor: message.color || undefined }}>
+            {message.displayName[0].toUpperCase()}
+          </div>
         )}
-        style={{ backgroundColor: message.color || undefined }}>
-          {message.displayName[0].toUpperCase()}
-        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span 
               className={cn("font-semibold text-sm", isPeachy && "text-purple-500")}
-              style={{ color: message.color || undefined }}
+              style={{ color: isSpecialEvent ? undefined : message.color || undefined }}
             >
               {message.displayName}
             </span>
-            <Badge variant="outline" className="text-xs">
-              <Twitch className="h-3 w-3 mr-1" />
-              Twitch
-            </Badge>
-            {message.isBroadcaster && (
-              <Badge variant="default" className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0">
-                BROADCASTER
+            
+            {/* Event-specific badges */}
+            {message.messageType === 'subscription' && (
+              <Badge className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-0">
+                <Crown className="h-3 w-3 mr-1" />
+                {message.isResub ? `RESUB x${message.subMonths}` : 'NEW SUB'} {getSubTierLabel(message.subTier)}
               </Badge>
             )}
-            {message.isMod && !message.isBroadcaster && (
-              <Badge variant="secondary">MOD</Badge>
+            
+            {message.messageType === 'giftsub' && (
+              <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
+                <Gift className="h-3 w-3 mr-1" />
+                GIFTED {message.giftTotal && message.giftTotal > 1 ? `${message.giftTotal} SUBS` : 'SUB'}
+              </Badge>
             )}
-            {message.isVip && (
-              <Badge variant="secondary">VIP</Badge>
+            
+            {message.messageType === 'bits' && (
+              <Badge className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
+                <Sparkles className="h-3 w-3 mr-1" />
+                {message.bits} BITS
+              </Badge>
             )}
-            {message.isSubscriber && (
-              <Badge variant="secondary">SUB</Badge>
+            
+            {message.messageType === 'raid' && (
+              <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">
+                <Users className="h-3 w-3 mr-1" />
+                RAID {message.raidViewers} viewers
+              </Badge>
             )}
+            
+            {message.messageType === 'announcement' && (
+              <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white border-0">
+                ANNOUNCEMENT
+              </Badge>
+            )}
+            
+            {message.messageType === 'follow' && (
+              <Badge className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white border-0">
+                <UserPlus className="h-3 w-3 mr-1" />
+                NEW FOLLOWER
+              </Badge>
+            )}
+            
+            {/* Regular badges */}
+            {!isSpecialEvent && (
+              <>
+                <Badge variant="outline" className="text-xs">
+                  <Twitch className="h-3 w-3 mr-1" />
+                  Twitch
+                </Badge>
+                {message.isBroadcaster && (
+                  <Badge variant="default" className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0">
+                    BROADCASTER
+                  </Badge>
+                )}
+                {message.isMod && !message.isBroadcaster && (
+                  <Badge variant="secondary">MOD</Badge>
+                )}
+                {message.isVip && (
+                  <Badge variant="secondary">VIP</Badge>
+                )}
+                {message.isSubscriber && !message.messageType && (
+                  <Badge variant="secondary">SUB</Badge>
+                )}
+              </>
+            )}
+            
             <span className="text-xs text-muted-foreground ml-auto">{time}</span>
           </div>
-          <p className="text-sm mt-1 break-all whitespace-pre-wrap overflow-wrap-anywhere">
-            {message.message}
-          </p>
+          
+          {/* Message content with special formatting for events */}
+          <div className="mt-1">
+            {message.messageType === 'giftsub' && message.giftRecipient && (
+              <p className="text-sm font-medium mb-1">
+                → Gifted to <span className="text-purple-500">{message.giftRecipient}</span>
+              </p>
+            )}
+            
+            {message.messageType === 'raid' && message.raidFromChannel && (
+              <p className="text-sm font-medium mb-1">
+                From <span className="text-purple-500">{message.raidFromChannel}</span>
+              </p>
+            )}
+            
+            <p className={cn(
+              "text-sm break-all whitespace-pre-wrap overflow-wrap-anywhere",
+              isSpecialEvent && "font-medium"
+            )}>
+              {message.message}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -314,9 +426,9 @@ export function UnifiedLivestreamChat() {
   };
 
   const getEventTitle = () => {
-    if (!liveEvent) return "Peachy's Live Stream Chat";
+    if (!liveEvent) return "Peachy's Chat";
     const titleTag = liveEvent.tags.find(([t]) => t === "title");
-    return titleTag?.[1] || "Peachy's Live Stream";
+    return titleTag?.[1] || "Peachy's Chat";
   };
 
   const status = getEventStatus();

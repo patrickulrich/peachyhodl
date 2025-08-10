@@ -165,9 +165,9 @@ export function LivestreamChat() {
   };
 
   const getEventTitle = () => {
-    if (!liveEvent) return "Peachy's Live Stream Chat";
+    if (!liveEvent) return "Peachy's Chat";
     const titleTag = liveEvent.tags.find(([t]) => t === "title");
-    return titleTag?.[1] || "Peachy's Live Stream";
+    return titleTag?.[1] || "Peachy's Chat";
   };
 
   const status = getEventStatus();
