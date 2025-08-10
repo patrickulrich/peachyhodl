@@ -3,6 +3,7 @@ import { useSeoMeta } from '@unhead/react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LiveStreamPlayer } from '@/components/livestream/LiveStreamPlayer';
 import { LiveChat } from '@/components/livestream/LiveChat';
+import { LiveStreamToolbar } from '@/components/livestream/LiveStreamToolbar';
 import { PictureGrid } from '@/components/gallery/PictureGrid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -70,22 +71,28 @@ const Index = () => {
               <Sparkles className="h-8 w-8 text-primary" />
               Live Now
             </h2>
-            <div className="grid lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <div className="h-[500px] lg:h-[400px] xl:h-[500px]">
-                  <LiveStreamPlayer
-                    streamUrl={liveStreamData.streamUrl!}
-                    title={liveStreamData.title}
-                    image={liveStreamData.image}
-                    participantCount={liveStreamData.participants.length}
-                  />
+            <div className="space-y-0">
+              <div className="grid lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <div className="h-[500px] lg:h-[400px] xl:h-[500px]">
+                    <LiveStreamPlayer
+                      streamUrl={liveStreamData.streamUrl!}
+                      title={liveStreamData.title}
+                      image={liveStreamData.image}
+                      participantCount={liveStreamData.participants.length}
+                    />
+                  </div>
+                </div>
+                <div className="lg:col-span-1">
+                  <div className="h-[500px] lg:h-[400px] xl:h-[500px]">
+                    <LiveChat liveEventId={liveEventId} liveEvent={liveStreamData.event} />
+                  </div>
                 </div>
               </div>
-              <div className="lg:col-span-1">
-                <div className="h-[500px] lg:h-[400px] xl:h-[500px]">
-                  <LiveChat liveEventId={liveEventId} liveEvent={liveStreamData.event} />
-                </div>
-              </div>
+              {/* Toolbar below stream and chat */}
+              <LiveStreamToolbar 
+                liveEvent={liveStreamData.event} 
+              />
             </div>
           </section>
         ) : (
