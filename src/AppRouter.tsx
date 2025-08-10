@@ -15,6 +15,7 @@ import WavlakeExplore from "./pages/WavlakeExplore";
 import WeeklySongsLeaderboard from "./pages/WeeklySongsLeaderboard";
 import PartyView from "./pages/PartyView";
 import { NotificationsPage } from "./pages/NotificationsPage";
+import { EditProfile } from "./pages/EditProfile";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
@@ -38,6 +39,7 @@ export function AppRouter() {
         <Route path="/weekly-songs-leaderboard" element={<WeeklySongsLeaderboard />} />
         <Route path="/party-view" element={<PartyView />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/edit-profile" element={<EditProfile />} />
         <Route path="/artist/:artistId" element={<WavlakeArtist />} />
         <Route path="/album/:albumId" element={<WavlakeAlbum />} />
         <Route path="/wavlake/:trackId" element={<WavlakeTrack />} />
