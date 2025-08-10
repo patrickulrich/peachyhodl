@@ -43,9 +43,15 @@ export function LiveStreamToolbar({ liveEvent }: LiveStreamToolbarProps) {
     const updateDuration = () => {
       const now = Date.now();
       const elapsed = Math.floor((now - startTime) / 1000); // seconds
-      const minutes = Math.floor(elapsed / 60);
+      const hours = Math.floor(elapsed / 3600);
+      const minutes = Math.floor((elapsed % 3600) / 60);
       const seconds = elapsed % 60;
-      setDuration(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+      
+      if (hours > 0) {
+        setDuration(`${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      } else {
+        setDuration(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+      }
     };
 
     // Update immediately

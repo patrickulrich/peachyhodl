@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Twitch, Zap, LogOut, LogIn, Gift, Heart, Users, Sparkles, Crown, UserPlus } from "lucide-react";
 import { useNostr } from "@nostrify/react";
@@ -530,27 +530,12 @@ export function UnifiedLivestreamChat() {
       {/* Chat Messages */}
       <div className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
         <Card className="h-[calc(100vh-8rem)]">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Unified Chat</h2>
-              <div className="flex gap-2">
-                <Badge variant="outline">
-                  <Zap className="h-3 w-3 mr-1" />
-                  Nostr: {nostrMessages.length}
-                </Badge>
-                {isTwitchConnected && (
-                  <Badge variant="outline">
-                    <Twitch className="h-3 w-3 mr-1" />
-                    Twitch: {twitchMessages.length}
-                  </Badge>
-                )}
-              </div>
+          {twitchError && (
+            <div className="p-4 border-b">
+              <p className="text-sm text-destructive">{twitchError}</p>
             </div>
-            {twitchError && (
-              <p className="text-sm text-destructive mt-2">{twitchError}</p>
-            )}
-          </CardHeader>
-          <CardContent className="p-0 h-[calc(100%-4rem)]">
+          )}
+          <CardContent className="p-0 h-full">
             <ScrollArea className="h-full" ref={scrollAreaRef}>
               <div className="p-4">
                 {isNostrLoading ? (
