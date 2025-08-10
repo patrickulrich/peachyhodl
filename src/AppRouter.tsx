@@ -17,6 +17,7 @@ import PartyView from "./pages/PartyView";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { EditProfile } from "./pages/EditProfile";
 import { NIP19Page } from "./pages/NIP19Page";
+import { ChatPage } from "./pages/ChatPage";
 import NotFound from "./pages/NotFound";
 
 export function AppRouter() {
@@ -43,6 +44,7 @@ export function AppRouter() {
         <Route path="/artist/:artistId" element={<WavlakeArtist />} />
         <Route path="/album/:albumId" element={<WavlakeAlbum />} />
         <Route path="/wavlake/:trackId" element={<WavlakeTrack />} />
+        <Route path="/stream/chat" element={<ChatPage />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
         <Route path="/:nip19" element={<NIP19Page />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
