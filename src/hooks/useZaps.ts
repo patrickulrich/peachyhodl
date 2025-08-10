@@ -192,12 +192,20 @@ export function useZaps(
         return;
       }
 
-      // Create zap request - use appropriate event format based on kind
-      // For addressable events (30000-39999), pass the object to get 'a' tag
-      // For all other events, pass the ID string to get 'e' tag
-      const event = (actualTarget.kind >= 30000 && actualTarget.kind < 40000)
-        ? actualTarget
-        : actualTarget.id;
+      // Create zap request - determine if we're zapping a profile or event
+      // If kind is 0 (profile metadata), zap the profile directly (no e/a tag)
+      // For other kinds, include appropriate event reference
+      let event;
+      if (actualTarget.kind === 0) {
+        // Profile zap - no event reference needed
+        event = undefined;
+      } else if (actualTarget.kind >= 30000 && actualTarget.kind < 40000) {
+        // Addressable event - use 'a' tag
+        event = actualTarget;
+      } else {
+        // Regular event - use 'e' tag  
+        event = actualTarget.id;
+      }
 
       const zapAmount = amount * 1000; // convert to millisats
 

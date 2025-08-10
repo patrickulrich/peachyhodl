@@ -25,7 +25,7 @@ const About = () => {
 
   // Create a mock profile event for zapping Peachy
   const peachyProfileEvent: Event = {
-    id: 'peachy-profile-mock',
+    id: '0000000000000000000000000000000000000000000000000000000000000000', // Valid hex event ID
     pubkey: PEACHY_PUBKEY,
     created_at: Math.floor(Date.now() / 1000),
     kind: 0,

@@ -355,8 +355,13 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     zap,
   };
 
+  // Wait for author data to load before making visibility decision
+  if (!author) {
+    return null; // Still loading, don't show anything yet
+  }
+
   if (!user || user.pubkey === target.pubkey || !author?.metadata?.lud06 && !author?.metadata?.lud16) {
-    return null;
+    return null; // Hide for real reasons: not logged in, self-zap, or no Lightning address
   }
 
   if (isMobile) {

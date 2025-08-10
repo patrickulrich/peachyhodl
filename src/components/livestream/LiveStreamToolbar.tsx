@@ -128,7 +128,7 @@ export function LiveStreamToolbar({ liveEvent }: LiveStreamToolbarProps) {
   // Create a mock profile event for zapping Peachy (similar to About page)
   // This uses the nostr-tools Event type that ZapDialog expects
   const peachyProfileEvent: Event = {
-    id: 'peachy-livestream-event',
+    id: '0000000000000000000000000000000000000000000000000000000000000000', // Valid hex event ID
     pubkey: PEACHY_PUBKEY,
     created_at: Math.floor(Date.now() / 1000),
     kind: 0, // Profile metadata event
