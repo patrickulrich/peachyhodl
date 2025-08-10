@@ -350,12 +350,11 @@ export function UnifiedLivestreamChat() {
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const prevMessagesLength = useRef(0);
 
-  const nostrMessages = nostrData?.messages || [];
   const liveEvent = nostrData?.liveEvent;
-
 
   // Merge and sort all messages by timestamp
   const unifiedMessages = useMemo(() => {
+    const nostrMessages = nostrData?.messages || [];
     const unified: UnifiedMessage[] = [];
 
     // Convert Nostr messages (only kind 1311 chat messages)
@@ -396,7 +395,7 @@ export function UnifiedLivestreamChat() {
 
     // Sort by timestamp
     return unified.sort((a, b) => a.timestamp - b.timestamp).slice(-500);
-  }, [nostrMessages, twitchMessages]);
+  }, [nostrData?.messages, twitchMessages]);
 
   // Get live event status
   const getEventStatus = () => {

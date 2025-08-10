@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -154,7 +154,7 @@ export function LivestreamChat() {
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const prevMessagesLength = useRef(0);
 
-  const messages = data?.messages || [];
+  const messages = useMemo(() => data?.messages || [], [data?.messages]);
   const liveEvent = data?.liveEvent;
 
   // Get live event status

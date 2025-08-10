@@ -161,7 +161,7 @@ export function useTwitchChat(): UseTwitchChatReturn {
     return () => {
       disconnect();
     };
-  }, []);
+  }, [connect, disconnect]);
 
   return {
     messages,
