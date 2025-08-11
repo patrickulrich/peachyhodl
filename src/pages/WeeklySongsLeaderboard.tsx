@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { VotersModal } from '@/components/VotersModal';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
@@ -39,6 +40,17 @@ export default function WeeklySongsLeaderboard() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrackList, setCurrentTrackList] = useState<MusicTrack[]>([]);
   const [addingTrackIds, setAddingTrackIds] = useState<Set<string>>(new Set());
+  const [votersModalData, setVotersModalData] = useState<{
+    open: boolean;
+    trackTitle: string;
+    trackArtist: string;
+    voters: string[];
+  }>({
+    open: false,
+    trackTitle: '',
+    trackArtist: '',
+    voters: [],
+  });
 
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
@@ -474,7 +486,20 @@ export default function WeeklySongsLeaderboard() {
                               )}
                             </p>
                             <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs flex items-center gap-1 ${
+                                  isPeachy ? 'cursor-pointer hover:bg-muted transition-colors' : ''
+                                }`}
+                                onClick={isPeachy ? () => {
+                                  setVotersModalData({
+                                    open: true,
+                                    trackTitle: vote.trackTitle,
+                                    trackArtist: vote.trackArtist,
+                                    voters: vote.voters,
+                                  });
+                                } : undefined}
+                              >
                                 <Heart className="h-3 w-3 text-red-500" />
                                 {vote.votes} vote{vote.votes !== 1 ? 's' : ''}
                               </Badge>
@@ -575,6 +600,15 @@ export default function WeeklySongsLeaderboard() {
             />
           </div>
         )}
+
+        {/* Voters Modal */}
+        <VotersModal
+          open={votersModalData.open}
+          onOpenChange={(open) => setVotersModalData(prev => ({ ...prev, open }))}
+          trackTitle={votersModalData.trackTitle}
+          trackArtist={votersModalData.trackArtist}
+          voters={votersModalData.voters}
+        />
       </div>
     </MainLayout>
   );

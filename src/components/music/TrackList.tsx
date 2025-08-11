@@ -10,7 +10,7 @@ import {
   Pause, 
   Clock,
   Music,
-  ExternalLink
+  Heart
 } from 'lucide-react';
 
 interface TrackListProps {
@@ -19,6 +19,7 @@ interface TrackListProps {
   isPlaying?: boolean;
   onTrackSelect: (track: MusicTrack) => void;
   onTogglePlayPause: (track: MusicTrack) => void;
+  onVoteForTrack?: (track: MusicTrack) => void;
   className?: string;
 }
 
@@ -28,6 +29,7 @@ export function TrackList({
   isPlaying, 
   onTrackSelect, 
   onTogglePlayPause,
+  onVoteForTrack,
   className 
 }: TrackListProps) {
   const [hoveredTrack, setHoveredTrack] = useState<string | null>(null);
@@ -173,23 +175,21 @@ export function TrackList({
                           className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                         />
 
-                        {/* External link */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          asChild
-                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <a
-                            href={track.urls?.[0]?.url || track.mediaUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Open track"
+                        {/* Vote for track button */}
+                        {onVoteForTrack && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onVoteForTrack(track);
+                            }}
+                            title="Vote for Top Track"
                           >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </Button>
+                            <Heart className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
 

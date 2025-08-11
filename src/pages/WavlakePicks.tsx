@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -12,6 +12,8 @@ import { TrackList } from '@/components/music/TrackList';
 import { ManagePicksDialog } from '@/components/music/ManagePicksDialog';
 import { useWavlakePicks, useTracksFromList } from '@/hooks/useMusicLists';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useToast } from '@/hooks/useToast';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { Music, Settings, ExternalLink, Zap, Compass, Monitor } from 'lucide-react';
 
@@ -25,6 +27,8 @@ const WavlakePicks = () => {
   });
 
   const { user } = useCurrentUser();
+  const { toast } = useToast();
+  const { mutateAsync: publishEvent } = useNostrPublish();
   const { data: wavlakeList, isLoading: isListLoading, error: listError } = useWavlakePicks();
   const { data: tracks = [], isLoading: isTracksLoading, error: tracksError } = useTracksFromList(wavlakeList?.tracks || []);
   
@@ -80,6 +84,50 @@ const WavlakePicks = () => {
     setCurrentTrack(null);
     setIsPlaying(false);
   };
+
+  // Vote for track function
+  const handleVoteForTrack = useCallback(async (track: MusicTrack) => {
+    if (!user) {
+      toast({
+        title: 'Login Required',
+        description: 'Please log in to vote for songs.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Create the voting event using Kind 30003 (Bookmark Sets)
+      const votingEvent = {
+        kind: 30003,
+        content: '',
+        tags: [
+          ['d', 'peachy-song-vote'], // Our specific identifier
+          ['title', 'Weekly Song Vote'],
+          ['description', 'My vote for the best song of the week'],
+          ['r', `https://wavlake.com/track/${track.id}`], // Reference to the Wavlake track
+          ['track_title', track.title],
+          ['track_artist', track.artist],
+          ['track_id', track.id]
+        ]
+      };
+
+      await publishEvent(votingEvent);
+
+      toast({
+        title: 'Vote Submitted!',
+        description: `Voted for "${track.title}" by ${track.artist}`,
+      });
+
+    } catch (error) {
+      console.error('Failed to submit vote:', error);
+      toast({
+        title: 'Vote Failed',
+        description: 'Could not submit your vote. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [user, publishEvent, toast]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
@@ -274,6 +322,7 @@ const WavlakePicks = () => {
                   isPlaying={isPlaying}
                   onTrackSelect={handleTrackSelect}
                   onTogglePlayPause={handleTogglePlayPause}
+                  onVoteForTrack={handleVoteForTrack}
                 />
               </div>
             ) : (
