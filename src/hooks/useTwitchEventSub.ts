@@ -32,6 +32,8 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const keepaliveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 10;
 
   const connect = useCallback(async () => {
     const token = parseTwitchToken();
@@ -77,16 +79,19 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
             storeTwitchSession(sessionId);
             setIsConnected(true);
             setError(null);
+            reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
 
-            // Set up keepalive timeout
+            // Set up keepalive timeout - use server-provided timeout + buffer
             const keepaliveTimeout = eventSubMessage.payload.session.keepalive_timeout_seconds || 10;
             if (keepaliveTimeoutRef.current) {
               clearTimeout(keepaliveTimeoutRef.current);
             }
+            // Use server timeout + small buffer to detect dead connections quickly
             keepaliveTimeoutRef.current = setTimeout(() => {
-              setError('Connection keepalive timeout');
-              ws.close();
-            }, (keepaliveTimeout + 5) * 1000);
+              console.warn('Keepalive timeout exceeded, reconnecting immediately...');
+              setError('Connection lost - reconnecting...');
+              ws.close(); // This will trigger immediate reconnect in onclose
+            }, (keepaliveTimeout + 3) * 1000); // Only 3 second buffer for faster detection
 
             // Create subscriptions after successful connection
             await createEventSubSubscriptions(token, sessionId);
@@ -95,13 +100,19 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
 
           case 'session_keepalive':
             console.log('EventSub keepalive received');
-            // Reset keepalive timeout
+            // Clear any existing error when we receive a keepalive
+            if (error === 'Connection lost - reconnecting...') {
+              setError(null);
+            }
+            // Reset keepalive timeout - expecting another within ~10 seconds
             if (keepaliveTimeoutRef.current) {
               clearTimeout(keepaliveTimeoutRef.current);
+              // Twitch sends keepalives every ~10 seconds, set timeout for 13 seconds
               keepaliveTimeoutRef.current = setTimeout(() => {
-                setError('Connection keepalive timeout');
-                ws.close();
-              }, 15000); // 15 seconds for keepalive timeout
+                console.warn('Keepalive timeout exceeded, reconnecting immediately...');
+                setError('Connection lost - reconnecting...');
+                ws.close(); // Triggers immediate reconnect
+              }, 13000); // 13 seconds - should get one every 10
             }
             break;
 
@@ -172,12 +183,26 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
           keepaliveTimeoutRef.current = null;
         }
 
-        // Attempt to reconnect after 5 seconds if we were authenticated and it wasn't a manual close
+        // Immediate reconnect if we were authenticated and it wasn't a manual close
         if (isAuthenticated && event.code !== 1000 && !reconnectTimeoutRef.current) {
+          reconnectAttemptsRef.current++;
+          
+          if (reconnectAttemptsRef.current > maxReconnectAttempts) {
+            setError('Failed to reconnect after multiple attempts. Please refresh the page.');
+            return;
+          }
+          
+          // Calculate delay with exponential backoff, but cap at 5 seconds
+          const delay = Math.min(100 * Math.pow(2, reconnectAttemptsRef.current - 1), 5000);
+          
+          console.log(`Attempting reconnection (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${delay}ms...`);
+          setError(`Connection lost - reconnecting (attempt ${reconnectAttemptsRef.current})...`);
+          
+          // Reconnect with exponential backoff
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectTimeoutRef.current = null;
             connect();
-          }, 5000);
+          }, delay);
         }
       };
 
@@ -185,7 +210,7 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
       console.error('Failed to connect to EventSub:', error);
       setError('Failed to connect to EventSub');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, error]);
 
   const createEventSubSubscriptions = async (accessToken: string, sessionId: string) => {
     const broadcasterId = await getBroadcasterUserId(accessToken);

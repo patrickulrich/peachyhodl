@@ -478,6 +478,7 @@ export function UnifiedLivestreamChat() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const prevMessagesLength = useRef(0);
+  const isAtBottomRef = useRef(true);
 
   // Merge and sort all messages by timestamp
   const unifiedMessages = useMemo(() => {
@@ -557,6 +558,24 @@ export function UnifiedLivestreamChat() {
   const status = getEventStatus();
   const title = getEventTitle();
 
+  // Set up scroll listener to detect when user is at bottom
+  useEffect(() => {
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!scrollContainer) return;
+    
+    const handleScroll = () => {
+      const threshold = 100; // 100px threshold for "at bottom"
+      const isBottom = scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - threshold;
+      isAtBottomRef.current = isBottom;
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   // Track new messages and auto-scroll
   useEffect(() => {
     if (unifiedMessages.length > prevMessagesLength.current) {
@@ -567,14 +586,22 @@ export function UnifiedLivestreamChat() {
         return newIds;
       });
       
-      // Auto-scroll to bottom
-      if (scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-        if (scrollContainer) {
-          setTimeout(() => {
+      // Auto-scroll only if we're at the bottom
+      if (isAtBottomRef.current) {
+        const scrollToBottom = () => {
+          const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+          if (scrollContainer) {
             scrollContainer.scrollTop = scrollContainer.scrollHeight;
-          }, 100);
-        }
+          }
+        };
+
+        // Use requestAnimationFrame for immediate scroll, then follow up to ensure it sticks
+        requestAnimationFrame(() => {
+          scrollToBottom();
+        });
+        // Follow up scrolls to handle any rendering delays
+        setTimeout(scrollToBottom, 50);
+        setTimeout(scrollToBottom, 100);
       }
     }
     
