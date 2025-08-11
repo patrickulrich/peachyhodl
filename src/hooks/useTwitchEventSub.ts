@@ -9,6 +9,7 @@ import {
   convertEventSubToTwitchMessage,
   storeTwitchSession,
   clearTwitchSession,
+  TWITCH_CLIENT_ID,
   type EventSubSubscription
 } from '@/lib/twitch';
 
@@ -191,6 +192,37 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
     if (!broadcasterId) {
       setError('Failed to get broadcaster user ID');
       return;
+    }
+
+    console.log('Creating subscriptions for broadcaster ID:', broadcasterId);
+
+    // Get the authenticated user's info to see who is actually authenticated
+    let authenticatedUser: { id?: string; login?: string; display_name?: string } | null = null;
+    try {
+      const userResponse = await fetch('https://api.twitch.tv/helix/users', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Client-Id': TWITCH_CLIENT_ID
+        }
+      });
+      
+      if (userResponse.ok) {
+        const userData = await userResponse.json() as { data?: Array<{ id: string; login: string; display_name: string }> };
+        authenticatedUser = userData.data?.[0] || null;
+        console.log('Authenticated as:', {
+          id: authenticatedUser?.id,
+          login: authenticatedUser?.login,
+          display_name: authenticatedUser?.display_name
+        });
+        console.log('Target broadcaster (peachyhodl) ID:', broadcasterId);
+        
+        if (authenticatedUser?.login?.toLowerCase() !== 'peachyhodl') {
+          console.warn('⚠️  You are not authenticated as peachyhodl! Some EventSub subscriptions will fail.');
+          setError(`Authenticated as ${authenticatedUser?.login || 'unknown'}, but need to be peachyhodl for all events`);
+        }
+      }
+    } catch (error) {
+      console.warn('Could not get authenticated user info:', error);
     }
 
     const subscriptions: Omit<EventSubSubscription, 'transport'>[] = [

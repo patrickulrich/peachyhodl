@@ -147,6 +147,15 @@ export async function createEventSubSubscription(
         error,
         subscription
       });
+      
+      // Log specific error details to help debugging
+      if (error.message) {
+        console.error('Twitch API Error:', error.message);
+      }
+      if (error.error) {
+        console.error('Twitch Error Type:', error.error);
+      }
+      
       return false;
     }
     
