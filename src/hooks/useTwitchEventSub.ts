@@ -267,20 +267,29 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
             errorMessage = 'Invalid reconnect URL - establishing new connection';
             break;
           default:
-            shouldReconnect = true;
-            errorMessage = `Connection lost (code: ${event.code})`;
+            // 1006 is abnormal closure - always try to reconnect
+            if (event.code === 1006) {
+              shouldReconnect = true;
+              errorMessage = 'Connection lost - reconnecting...';
+            } else {
+              shouldReconnect = true;
+              errorMessage = `Connection lost (code: ${event.code})`;
+            }
         }
 
         if (errorMessage) {
           setError(errorMessage);
         }
 
-        // Reconnect if needed and authenticated
-        if (shouldReconnect && isAuthenticated && !manualDisconnectRef.current) {
-          console.log('Reconnecting in 1 second...');
-          setTimeout(() => {
-            connect();
-          }, 1000);
+        // Reconnect if needed and we have a token
+        if (shouldReconnect && !manualDisconnectRef.current) {
+          const token = parseTwitchToken();
+          if (token) {
+            console.log('Reconnecting in 1 second...');
+            setTimeout(() => {
+              connect();
+            }, 1000);
+          }
         }
       };
 
@@ -288,7 +297,7 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
       console.error('Failed to connect to EventSub:', error);
       setError('Failed to connect to EventSub');
     }
-  }, [isAuthenticated]);
+  }, []); // Remove isAuthenticated dependency to keep connect stable
 
   const createEventSubSubscriptions = async (accessToken: string, sessionId: string) => {
     const broadcasterId = await getBroadcasterUserId(accessToken);
@@ -454,7 +463,11 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
     }
 
     return () => {
-      disconnect();
+      // Cleanup on unmount
+      manualDisconnectRef.current = true;
+      if (wsRef.current) {
+        disconnect();
+      }
     };
   }, [connect, disconnect]);
 
