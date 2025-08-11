@@ -105,8 +105,12 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
             break;
 
           case 'notification': {
-            console.log('EventSub notification:', eventSubMessage.metadata.subscription_type);
+            console.log('EventSub notification received:', {
+              type: eventSubMessage.metadata.subscription_type,
+              event: eventSubMessage.payload.event
+            });
             const twitchMessage = convertEventSubToTwitchMessage(eventSubMessage);
+            console.log('Converted to TwitchMessage:', twitchMessage);
             if (twitchMessage) {
               setMessages(prev => {
                 const updated = [...prev, twitchMessage];
@@ -115,6 +119,8 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
                 }
                 return updated;
               });
+            } else {
+              console.warn('Failed to convert EventSub message to TwitchMessage');
             }
             break;
           }
@@ -258,11 +264,13 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
         }
       };
 
+      console.log(`Creating EventSub subscription: ${sub.type}`, subscription);
       const success = await createEventSubSubscription(accessToken, subscription);
       if (success) {
-        console.log(`Created EventSub subscription: ${sub.type}`);
+        console.log(`✅ Successfully created EventSub subscription: ${sub.type}`);
       } else {
-        console.error(`Failed to create EventSub subscription: ${sub.type}`);
+        console.error(`❌ Failed to create EventSub subscription: ${sub.type}`);
+        setError(`Failed to create subscription: ${sub.type}`);
       }
 
       // Small delay between subscription requests to avoid rate limiting

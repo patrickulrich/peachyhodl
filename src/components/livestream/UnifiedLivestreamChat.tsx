@@ -10,6 +10,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useTwitchEventSub } from "@/hooks/useTwitchEventSub";
+import { useZapNotifications } from "@/hooks/useZapNotifications";
+import { useAuthor as useZapAuthor } from "@/hooks/useAuthor";
 import { getTwitchAuthUrl, TWITCH_CHANNEL } from "@/lib/twitch";
 import type { NostrEvent } from "@nostrify/nostrify";
 import type { TwitchMessage } from "@/lib/twitch";
@@ -22,7 +24,7 @@ type ExtendedNostrEvent = NostrEvent;
 
 type UnifiedMessage = {
   id: string;
-  source: 'nostr' | 'twitch';
+  source: 'nostr' | 'twitch' | 'zap';
   timestamp: number;
   content: string;
   author: {
@@ -37,6 +39,9 @@ type UnifiedMessage = {
   badges?: string[];
   nostrEvent?: ExtendedNostrEvent;
   twitchMessage?: TwitchMessage;
+  // Zap-specific fields
+  satoshis?: number;
+  zapType?: 'profile' | 'stream';
 };
 
 interface NostrChatMessageProps {
@@ -86,7 +91,7 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
             )}
             <span className="text-xs text-muted-foreground ml-auto">{time}</span>
           </div>
-          <p className="text-sm mt-1 break-all whitespace-pre-wrap overflow-wrap-anywhere">
+          <p className="text-sm mt-1 break-words whitespace-pre-wrap hyphens-auto">
             {message.content}
           </p>
         </div>
@@ -263,11 +268,66 @@ function TwitchChatMessage({ message, isNew }: TwitchChatMessageProps) {
             )}
             
             <p className={cn(
-              "text-sm break-all whitespace-pre-wrap overflow-wrap-anywhere",
+              "text-sm break-words whitespace-pre-wrap hyphens-auto",
               isSpecialEvent && "font-medium"
             )}>
               {message.message}
             </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ZapNotificationMessageProps {
+  satoshis: number;
+  zapType: 'profile' | 'stream';
+  senderPubkey: string;
+  message: string;
+  isNew?: boolean;
+}
+
+function ZapNotificationMessage({ satoshis, zapType, senderPubkey, message, isNew }: ZapNotificationMessageProps) {
+  const author = useZapAuthor(senderPubkey);
+  const metadata = author.data?.metadata;
+  const displayName = metadata?.name || genUserName(senderPubkey);
+  
+  const zapIcon = zapType === 'profile' ? '👤' : '🎬';
+  const zapLabel = zapType === 'profile' ? 'PROFILE ZAP' : 'STREAM ZAP';
+  
+  return (
+    <div 
+      className={cn(
+        "p-4 rounded-lg border transition-all duration-300 bg-gradient-to-r from-yellow-500/20 to-orange-500/10 border-yellow-500/40 shadow-lg",
+        isNew && "animate-in slide-in-from-bottom-2"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-full flex items-center justify-center bg-gradient-to-br from-yellow-500 to-orange-500 text-white shadow-lg">
+          <Zap className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-sm text-yellow-600">
+              {displayName}
+            </span>
+            <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">
+              {zapIcon} {zapLabel}
+            </Badge>
+            <Badge variant="outline" className="text-xs font-bold text-yellow-600 border-yellow-500">
+              ⚡ {satoshis.toLocaleString()} sats
+            </Badge>
+          </div>
+          <div className="mt-1">
+            <p className="text-sm font-medium">
+              Zapped ⚡ {satoshis.toLocaleString()} sats to {zapType === 'profile' ? "Peachy's profile" : "this stream"}!
+            </p>
+            {message && (
+              <p className="text-sm mt-1 break-words whitespace-pre-wrap hyphens-auto italic text-yellow-700">
+                "{message}"
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -346,11 +406,13 @@ export function UnifiedLivestreamChat() {
     clearAuth: clearTwitchAuth
   } = useTwitchEventSub();
   
+  const liveEvent = nostrData?.liveEvent;
+  const liveEventId = liveEvent?.id;
+  const { data: zapNotifications = [] } = useZapNotifications(liveEventId);
+  
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const prevMessagesLength = useRef(0);
-
-  const liveEvent = nostrData?.liveEvent;
 
   // Merge and sort all messages by timestamp
   const unifiedMessages = useMemo(() => {
@@ -393,9 +455,26 @@ export function UnifiedLivestreamChat() {
       });
     });
 
+    // Convert Zap notifications
+    zapNotifications.forEach(zap => {
+      unified.push({
+        id: `zap-${zap.id}`,
+        source: 'zap',
+        timestamp: zap.timestamp,
+        content: zap.message,
+        author: {
+          name: '', // Will be filled by component
+          avatar: undefined
+        },
+        isPeachy: false, // Zaps are to Peachy, but sent by others
+        satoshis: zap.amount,
+        zapType: zap.type
+      });
+    });
+
     // Sort by timestamp
     return unified.sort((a, b) => a.timestamp - b.timestamp).slice(-500);
-  }, [nostrData?.messages, twitchMessages]);
+  }, [nostrData?.messages, twitchMessages, zapNotifications]);
 
   // Get live event status
   const getEventStatus = () => {
@@ -559,6 +638,21 @@ export function UnifiedLivestreamChat() {
                           <TwitchChatMessage
                             key={message.id}
                             message={message.twitchMessage}
+                            isNew={newMessageIds.has(message.id)}
+                          />
+                        );
+                      } else if (message.source === 'zap' && message.satoshis && message.zapType) {
+                        // Extract sender pubkey from zap notification
+                        const zapNotification = zapNotifications.find(zap => `zap-${zap.id}` === message.id);
+                        const senderPubkey = zapNotification?.sender.pubkey || '';
+                        
+                        return (
+                          <ZapNotificationMessage
+                            key={message.id}
+                            satoshis={message.satoshis}
+                            zapType={message.zapType}
+                            senderPubkey={senderPubkey}
+                            message={message.content}
                             isNew={newMessageIds.has(message.id)}
                           />
                         );

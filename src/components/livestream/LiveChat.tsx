@@ -38,7 +38,7 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
             {new Date(message.created_at * 1000).toLocaleTimeString()}
           </span>
         </div>
-        <p className="text-sm break-all whitespace-pre-wrap overflow-wrap-anywhere">{message.content}</p>
+        <p className="text-sm break-words whitespace-pre-wrap hyphens-auto">{message.content}</p>
       </div>
     </div>
   );

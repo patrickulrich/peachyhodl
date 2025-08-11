@@ -21,7 +21,7 @@ export interface TwitchMessage {
   isSubscriber?: boolean;
   isVip?: boolean;
   isBroadcaster?: boolean;
-  messageType?: 'chat' | 'subscription' | 'giftsub' | 'bits' | 'raid' | 'announcement' | 'follow';
+  messageType?: 'chat' | 'subscription' | 'giftsub' | 'bits' | 'raid' | 'announcement' | 'follow' | 'zap';
   // Subscription related
   subTier?: '1000' | '2000' | '3000' | 'Prime';
   subMonths?: number;
@@ -38,6 +38,9 @@ export interface TwitchMessage {
   raidFromChannel?: string;
   // Follow related
   isFirstTimeFollower?: boolean;
+  // Zap related
+  satoshis?: number;
+  zapType?: 'profile' | 'stream';
 }
 
 export function getTwitchAuthUrl(): string {
@@ -138,9 +141,17 @@ export async function createEventSubSubscription(
     
     if (!response.ok) {
       const error = await response.json();
-      console.error('Failed to create EventSub subscription:', error);
+      console.error('Failed to create EventSub subscription:', {
+        status: response.status,
+        statusText: response.statusText,
+        error,
+        subscription
+      });
       return false;
     }
+    
+    const result = await response.json();
+    console.log('EventSub subscription created successfully:', result);
     
     return true;
   } catch (error) {
@@ -210,16 +221,23 @@ export function convertEventSubToTwitchMessage(message: EventSubMessage): Twitch
         isFirstTimeFollower: true
       };
       
-    case 'channel.cheer':
+    case 'channel.cheer': {
+      const isAnonymous = Boolean(event.is_anonymous);
+      const bits = Number(event.bits || 0);
+      const username = isAnonymous ? 'anonymous' : String(event.user_login || 'anonymous');
+      const displayName = isAnonymous ? 'Anonymous' : String(event.user_name || 'Anonymous');
+      const message = String(event.message || '');
+      
       return {
         id: baseId,
-        username: String(event.user_login || 'anonymous'),
-        displayName: String(event.user_name || 'Anonymous'),
-        message: String(event.message || ''),
+        username,
+        displayName,
+        message: message || `Cheered ${bits} bits!`,
         timestamp,
         messageType: 'bits',
-        bits: Number(event.bits || 0)
+        bits
       };
+    }
       
     case 'channel.subscribe':
       return {
