@@ -64,6 +64,7 @@ export function useReactions(eventId: string | null) {
 
     const subscribeToReactions = async () => {
       try {
+        // console.log('Setting up reaction subscription for event:', eventId.slice(0, 8));
         const reactionStream = nostr.req([{
           kinds: [7],
           "#e": [eventId],
@@ -71,9 +72,22 @@ export function useReactions(eventId: string | null) {
 
         for await (const msg of reactionStream) {
           if (msg[0] === 'EVENT') {
+            const event = msg[2];
+            // Only log moderation reactions to reduce noise
+            if (event.content === "❌" && event.pubkey === PEACHY_HEX) {
+              console.log('🛡️ Moderation reaction received for event:', eventId.slice(0, 8));
+            }
             // Immediately invalidate queries to trigger refetch with new reaction
             queryClient.invalidateQueries({ queryKey });
+            
+            // Also trigger a specific refetch to be more aggressive
+            setTimeout(() => {
+              queryClient.refetchQueries({ queryKey });
+            }, 100);
+          } else if (msg[0] === 'EOSE') {
+            // console.log('Reaction subscription EOSE for event:', eventId.slice(0, 8));
           } else if (msg[0] === 'CLOSED') {
+            // console.log('Reaction subscription closed for event:', eventId.slice(0, 8));
             break;
           }
         }
@@ -84,6 +98,7 @@ export function useReactions(eventId: string | null) {
       }
     };
 
+    // Start subscription immediately
     subscribeToReactions();
 
     return () => {

@@ -16,6 +16,7 @@ import { getTwitchAuthUrl, TWITCH_CHANNEL } from "@/lib/twitch";
 import { NoteContent } from "@/components/NoteContent";
 import { ReactionButton } from "@/components/reactions/ReactionButton";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useMessageModeration } from "@/hooks/useMessageModeration";
 import LoginDialog from "@/components/auth/LoginDialog";
 import type { NostrEvent } from "@nostrify/nostrify";
 import type { TwitchMessage } from "@/lib/twitch";
@@ -122,10 +123,13 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(message.pubkey);
+  const { isModerated } = useMessageModeration(message.id);
   const time = new Date(message.created_at * 1000).toLocaleTimeString([], { 
     hour: '2-digit', 
     minute: '2-digit' 
   });
+
+  // Don't hide moderated messages in UnifiedLivestreamChat, just grey them out
 
   return (
     <div 
@@ -133,7 +137,8 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
         "p-4 rounded-lg border transition-all duration-300 w-full",
         isPeachy && "bg-gradient-to-r from-pink-500/10 to-pink-400/5 border-pink-500/30",
         !isPeachy && "bg-card hover:bg-accent/5",
-        isNew && "animate-in slide-in-from-bottom-2"
+        isNew && "animate-in slide-in-from-bottom-2",
+        isModerated && "opacity-50 bg-muted/30 border-destructive/20"
       )}
     >
       <div className="flex items-start gap-3">
@@ -156,6 +161,11 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
             {isPeachy && (
               <Badge variant="default" className="bg-gradient-to-r from-pink-500 to-pink-600 text-white border-0 flex-shrink-0">
                 HOST
+              </Badge>
+            )}
+            {isModerated && (
+              <Badge variant="destructive" className="text-xs flex-shrink-0">
+                MODERATED
               </Badge>
             )}
             <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">{time}</span>

@@ -7,6 +7,11 @@ import { useReactions } from "./useReactions";
 export function useMessageModeration(messageId: string | null) {
   const { reactionSummary } = useReactions(messageId);
   
+  // Log only when moderation status changes for debugging
+  // if (reactionSummary.isModerated && messageId) {
+  //   console.log('Message is moderated:', messageId.slice(0, 8));
+  // }
+  
   return {
     isModerated: reactionSummary.isModerated,
     reactionSummary,
