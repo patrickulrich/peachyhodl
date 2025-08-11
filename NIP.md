@@ -5,6 +5,8 @@ NIP-100: WebRTC over Nostr
 
 This NIP defines how to do WebRTC communication over Nostr.
 
+*Implementation follows the specification by chakany: https://github.com/chakany/nips/blob/webrtc/100.md*
+
 ## Abstract
 
 This specification describes a method for establishing WebRTC peer-to-peer connections using Nostr events as the signaling layer. It enables real-time audio, video, and data communication directly between Nostr clients without requiring centralized signaling servers.
@@ -248,12 +250,290 @@ For large group calls, clients MAY implement:
 
 ## Examples
 
+### Connection Flow Example
+
+1. **User joins room**:
+```json
+{
+  "kind": 25050,
+  "content": "Joining room: peachy-main-audio-room",
+  "tags": [
+    ["type", "connect"],
+    ["r", "peachy-main-audio-room"]
+  ]
+}
+```
+
+2. **Existing participant responds with offer**:
+```json
+{
+  "kind": 25050,
+  "content": "<encrypted JSON string>",
+  "tags": [
+    ["type", "offer"],
+    ["p", "<new user pubkey>"],
+    ["r", "<optional encrypted room id>"]
+  ]
+}
+```
+
+3. **New user responds with answer**:
+```json
+{
+  "kind": 25050,
+  "content": "<encrypted JSON string>",
+  "tags": [
+    ["type", "answer"],
+    ["p", "<existing user pubkey>"],
+    ["r", "<optional encrypted room id>"]
+  ]
+}
+```
+
+## Implementation Notes
+
+### Peachy HODL Implementation
+
+Peachy HODL implements chakany's NIP-100 specification with these features:
+
+- **Real-time subscriptions**: Uses Nostr streaming for immediate event delivery
+- **Room-based communication**: Supports the main "peachy-main-audio-room" 
+- **Encryption**: All offer/answer/candidate content is encrypted using NIP-04
+- **JSON stringification**: Content is JSON stringified before encryption as required
+- **Participant discovery**: New joiners query recent connect events to find existing participants
+- **Heartbeat system**: Periodic connect events maintain participant presence
+
+### Additional Features
+
+- **Moderation support**: Extends NIP-100 with kick/ban events for room management
+- **Stale participant cleanup**: Automatic removal of inactive participants
+- **Connection coordination**: Follows NIP-100 patterns for peer connection establishment
+
 See the reference implementation in Peachy HODL's audio room system for practical usage examples.
 
 ---
 
-Music Events
-============
+---
+
+Custom Music Events
+===================
+
+This document defines custom event kinds specific to Peachy HODL's Bitcoin music integration and Nostr music standards.
+
+## Custom Event Kinds
+
+- **25050** - WebRTC signaling events (NIP-100)
+- **31337** - Proposed Nostr-native music standard
+- **32123** - Wavlake music tracks with NOM specification compatibility
+
+## NIP-100: WebRTC over Nostr
+
+`draft` `optional` `author:jacany`
+
+This NIP defines how to do WebRTC communication over Nostr.
+
+*Implementation follows the specification by chakany: https://github.com/chakany/nips/blob/webrtc/100.md*
+
+### Abstract
+
+This specification describes a method for establishing WebRTC peer-to-peer connections using Nostr events as the signaling layer. It enables real-time audio, video, and data communication directly between Nostr clients without requiring centralized signaling servers.
+
+### Motivation
+
+WebRTC provides excellent peer-to-peer communication capabilities but requires a signaling mechanism to coordinate connection establishment. By using Nostr as the signaling layer, we can create decentralized voice/video communication that aligns with Nostr's censorship-resistant principles.
+
+### Event Kind
+
+WebRTC signaling events use kind `25050`.
+
+### Defining Rooms
+
+Rooms are essentially the space that you will be connected to. How rooms are defined depends:
+
+1. **One-on-one calls**: Use only the `p` tag to specify the target participant
+2. **Group calls**: Use both `p` tags for participants and an `r` tag for the room identifier
+
+### Event Types
+
+All WebRTC signaling events include a `type` tag to indicate the signaling message type.
+
+#### Connect Event
+
+Announces that a client is ready to connect to others in a room.
+
+```json
+{
+    "kind": 25050,
+    "pubkey": "<sender pubkey>",
+    "tags": [
+        ["type", "connect"],
+        ["r", "<room id>"]
+    ],
+    "content": "Joining room: <room name>"
+}
+```
+
+For one-on-one calls:
+```json
+{
+    "kind": 25050,
+    "pubkey": "<sender pubkey>",
+    "tags": [
+        ["type", "connect"],
+        ["p", "<target pubkey>"]
+    ],
+    "content": ""
+}
+```
+
+#### Disconnect Event
+
+Announces that a client is leaving a room or call.
+
+```json
+{
+    "kind": 25050,
+    "pubkey": "<sender pubkey>",
+    "tags": [
+        ["type", "disconnect"],
+        ["r", "<room id>"]
+    ],
+    "content": "Leaving room: <room name>"
+}
+```
+
+#### Offer Event
+
+Contains WebRTC offer data for connection establishment.
+
+```json
+{
+    "kind": 25050,
+    "pubkey": "<sender pubkey>",
+    "tags": [
+        ["type", "offer"],
+        ["p", "<receiver pubkey>"],
+        ["r", "<optional encrypted room id>"]
+    ],
+    "content": "<encrypted JSON>"
+}
+```
+
+Encrypted content structure:
+```json
+{
+    "offer": "<SDP offer string>",
+    "type": "offer"
+}
+```
+
+#### Answer Event
+
+Contains WebRTC answer data in response to an offer.
+
+```json
+{
+    "kind": 25050,
+    "pubkey": "<sender pubkey>",
+    "tags": [
+        ["type", "answer"],
+        ["p", "<receiver pubkey>"],
+        ["r", "<optional encrypted room id>"]
+    ],
+    "content": "<encrypted JSON>"
+}
+```
+
+Encrypted content structure:
+```json
+{
+    "sdp": "<SDP answer string>",
+    "type": "answer"
+}
+```
+
+#### ICE Candidate Event
+
+Contains ICE candidate data for connection establishment.
+
+```json
+{
+    "kind": 25050,
+    "pubkey": "<sender pubkey>",
+    "tags": [
+        ["type", "candidate"],
+        ["p", "<receiver pubkey>"],
+        ["r", "<optional encrypted room id>"]
+    ],
+    "content": "<encrypted JSON>"
+}
+```
+
+Encrypted content structure:
+```json
+{
+    "candidate": "<ICE candidate string>",
+    "sdpMid": "<SDP media ID>",
+    "sdpMLineIndex": "<line index number>"
+}
+```
+
+### Encryption
+
+The `content` field of `offer`, `answer`, and `candidate` events MUST be encrypted using NIP-04 encryption between the sender and receiver. Room IDs in `r` tags MAY be encrypted for private rooms.
+
+**Important**: Content fields MUST be JSON stringified before encryption.
+
+### Moderation Events
+
+#### Kick Event
+
+Temporarily removes a user from a room.
+
+```json
+{
+    "kind": 25050,
+    "pubkey": "<moderator pubkey>",
+    "tags": [
+        ["type", "kick"],
+        ["p", "<target pubkey>"],
+        ["r", "<room id>"]
+    ],
+    "content": "<reason for kick>"
+}
+```
+
+#### Ban Event
+
+Permanently removes a user from a room.
+
+```json
+{
+    "kind": 25050,
+    "pubkey": "<moderator pubkey>",
+    "tags": [
+        ["type", "ban"],
+        ["p", "<target pubkey>"],
+        ["r", "<room id>"]
+    ],
+    "content": "<reason for ban>"
+}
+```
+
+### Implementation Notes
+
+#### Peachy HODL Extensions
+
+Peachy HODL implements chakany's NIP-100 specification with additional features:
+
+- **Real-time subscriptions**: Uses Nostr streaming for immediate event delivery
+- **Room-based communication**: Supports the main "peachy-main-audio-room"
+- **Participant discovery**: New joiners query recent connect events to find existing participants
+- **Heartbeat system**: Periodic connect events maintain participant presence
+- **Stale participant cleanup**: Automatic removal of inactive participants
+- **Connection coordination**: Follows NIP-100 patterns for peer connection establishment
+
+---
 
 ## NIP-32123: Music Track Events (Wavlake Compatibility)
 
@@ -376,3 +656,14 @@ The content field may contain:
 ### Migration Path
 
 This proposed standard is designed to eventually replace kind 32123 for music content published directly to Nostr, while maintaining backward compatibility during transition.
+
+---
+
+## Implementation Status
+
+Peachy HODL implements all three custom NIPs:
+- **NIP-100**: Complete WebRTC over Nostr implementation with extensions for audio rooms, moderation, and participant management
+- **NIP-32123**: Full Wavlake compatibility with NOM specification for Bitcoin music integration
+- **NIP-31337**: Proposed Nostr-native music standard for enhanced functionality and better relay filtering
+
+These custom extensions enable comprehensive real-time communication and Bitcoin music integration while maintaining interoperability with existing Nostr applications.
