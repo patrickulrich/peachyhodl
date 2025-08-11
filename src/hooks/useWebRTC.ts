@@ -129,13 +129,11 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
   // NRTC Pattern: Initialize peer connection and create offer
   const initRTCPeerConnection = useCallback(async (id: string, onIceCandidate?: (candidate: RTCIceCandidate) => void): Promise<RTCSessionDescriptionInit | null> => {
     try {
-      // NRTC Pattern: Always create new connections and overwrite existing ones
-      // This handles the race condition where both users see each other's "connect" events
+      // NRTC Pattern: Simple overwrite - don't explicitly close existing connections
+      // Let the browser handle cleanup when connections are replaced
       if (peers[id]) {
         const existingState = peers[id].signalingState;
         console.log(`Overwriting existing connection for ${id} (was in ${existingState} state)`);
-        peers[id].close();
-        delete peers[id];
       }
       
       // NRTC Pattern: Create new connection
@@ -191,13 +189,11 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
 
       if (!offer) return null;
 
-      // NRTC Pattern: Always accept offers and overwrite existing connections
-      // This prevents race conditions when both users try to initiate simultaneously
+      // NRTC Pattern: Simple overwrite - don't explicitly close existing connections  
+      // Let the browser handle cleanup when connections are replaced
       if (peers[id]) {
         const existingState = peers[id].signalingState;
         console.log(`Replacing existing connection for ${id} with new offer (was in ${existingState} state)`);
-        peers[id].close();
-        delete peers[id];
       }
 
       const pc = new RTCPeerConnection(config);
