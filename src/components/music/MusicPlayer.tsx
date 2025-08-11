@@ -1,10 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { WavlakeZapDialog } from '@/components/music/WavlakeZapDialog';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useToast } from '@/hooks/useToast';
 import { 
   Play, 
   Pause, 
@@ -14,6 +17,7 @@ import {
   VolumeX,
   Clock,
   Zap,
+  Heart,
   X
 } from 'lucide-react';
 
@@ -35,6 +39,11 @@ export function MusicPlayer({ track, onNext, onPrevious, onClose, autoPlay = fal
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Voting functionality
+  const { user } = useCurrentUser();
+  const { mutateAsync: publishEvent } = useNostrPublish();
+  const { toast } = useToast();
+
   // Get media URL for playback from Wavlake API data
   const playbackUrl = track.mediaUrl;
 
@@ -44,6 +53,59 @@ export function MusicPlayer({ track, onNext, onPrevious, onClose, autoPlay = fal
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Vote for track function
+  const handleVoteForTrack = useCallback(async () => {
+    if (!user) {
+      toast({
+        title: 'Login Required',
+        description: 'Please log in to vote for songs.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!track) {
+      toast({
+        title: 'Track Not Available',
+        description: 'Cannot vote for this track.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Create the voting event using Kind 30003 (Bookmark Sets)
+      const votingEvent = {
+        kind: 30003,
+        content: '',
+        tags: [
+          ['d', 'peachy-song-vote'], // Our specific identifier
+          ['title', 'Weekly Song Vote'],
+          ['description', 'My vote for the best song of the week'],
+          ['r', `https://wavlake.com/track/${track.id}`], // Reference to the Wavlake track
+          ['track_title', track.title],
+          ['track_artist', track.artist],
+          ['track_id', track.id]
+        ]
+      };
+
+      await publishEvent(votingEvent);
+
+      toast({
+        title: 'Vote Submitted!',
+        description: `Voted for "${track.title}" by ${track.artist}`,
+      });
+
+    } catch (error) {
+      console.error('Failed to submit vote:', error);
+      toast({
+        title: 'Vote Failed',
+        description: 'Could not submit your vote. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [user, publishEvent, toast, track]);
 
   // Audio event handlers
   useEffect(() => {
@@ -238,8 +300,18 @@ export function MusicPlayer({ track, onNext, onPrevious, onClose, autoPlay = fal
                   {formatTime(currentTime)} / {formatTime(duration || track.duration || 0)}
                 </div>
 
-                {/* Zap and Close buttons */}
+                {/* Vote, Zap and Close buttons */}
                 <div className="flex items-center gap-1 ml-auto">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleVoteForTrack}
+                    className="h-8 w-8 p-0"
+                    title="Vote for Top Track"
+                  >
+                    <Heart className="h-4 w-4" />
+                  </Button>
+                  
                   <WavlakeZapDialog track={track}>
                     <Button
                       size="sm"
