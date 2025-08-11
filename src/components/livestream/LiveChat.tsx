@@ -10,6 +10,7 @@ import { useLiveChat } from "@/hooks/useLiveChat";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
+import { ReactionButton } from "@/components/reactions/ReactionButton";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
 import type { NostrEvent } from "@nostrify/nostrify";
@@ -90,6 +91,9 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
         </div>
         <div className="text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
           {parsedContent}
+        </div>
+        <div className="mt-1">
+          <ReactionButton message={message} />
         </div>
       </div>
     </div>

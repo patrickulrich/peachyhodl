@@ -14,6 +14,7 @@ import { useZapNotifications } from "@/hooks/useZapNotifications";
 import { useAuthor as useZapAuthor } from "@/hooks/useAuthor";
 import { getTwitchAuthUrl, TWITCH_CHANNEL } from "@/lib/twitch";
 import { NoteContent } from "@/components/NoteContent";
+import { ReactionButton } from "@/components/reactions/ReactionButton";
 import type { NostrEvent } from "@nostrify/nostrify";
 import type { TwitchMessage } from "@/lib/twitch";
 import { cn } from "@/lib/utils";
@@ -158,6 +159,9 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
           </div>
           <div className="text-sm" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
             <NoteContent event={message} className="break-words overflow-wrap-anywhere" />
+          </div>
+          <div className="mt-1">
+            <ReactionButton message={message} />
           </div>
         </div>
       </div>

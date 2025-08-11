@@ -28,8 +28,9 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **📸 Photo Galleries** - NIP-68 picture feeds with responsive grid layout and lightbox viewing
 - **📅 Event Calendar** - Upcoming and past live events via NIP-53 with status tracking
 - **💬 Advanced Comments System** - Threaded discussions on all content using NIP-22
+- **❤️ Interactive Reactions** - NIP-25 reactions on live chat messages with tap-to-like and long-press emoji selector
 - **🔗 NIP-19 Routing** - Direct access to any Nostr content via npub, note, nevent, naddr URLs
-- **📱 Unified Chat** - Global livestream chat system with real-time messaging
+- **📱 Unified Chat** - Global livestream chat system with real-time messaging and reactions
 
 ### **Admin Features** 
 - **Content Management** - Special admin controls when Peachy is signed in
@@ -54,7 +55,7 @@ A decentralized personal website and social platform built entirely on Nostr pro
 
 ### **Nostr Integration**
 - **Nostrify** - Modern Nostr framework for web applications
-- **NIP Standards** - Implements 19+ NIPs for comprehensive functionality
+- **NIP Standards** - Implements 20+ NIPs for comprehensive functionality
 - **TanStack Query** - Powerful data fetching and caching for Nostr events
 - **Multi-Relay Support** - Query multiple relays with automatic failover
 
@@ -81,6 +82,7 @@ A decentralized personal website and social platform built entirely on Nostr pro
 | [NIP-27](https://github.com/nostr-protocol/nips/blob/master/27.md) | Text Note References | ✅ Mention notifications and user tagging | **Component**: `LiveStreamToolbar` **Feature**: User mentions in posts |
 | [NIP-22](https://github.com/nostr-protocol/nips/blob/master/22.md) | Comments | ✅ Threaded comment system | **Component**: `CommentsSection` **Hooks**: `useComments`, `usePostComment` **Feature**: Comments on all content types |
 | [NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md) | Long-form Content | ✅ Blog articles and rich content | **Page**: `Blog` **Hook**: `useBlogPosts` **Kind**: 30023 for articles |
+| [NIP-25](https://github.com/nostr-protocol/nips/blob/master/25.md) | Reactions | ✅ Like and emoji reactions on chat messages | **Component**: `ReactionButton` **Hook**: `useReactions` **Pages**: LiveChat, UnifiedLivestreamChat **Feature**: Interactive message reactions with tap-to-like and long-press emoji selector |
 | [NIP-31](https://github.com/nostr-protocol/nips/blob/master/31.md) | Unknown Events | ✅ Alt tag descriptions for custom events | **Hook**: `useNotificationReadStatus` **Feature**: Human-readable event descriptions |
 | [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Lists | ✅ Music playlists and curation sets | **Components**: `ManagePicksDialog`, `AddToPlaylistButton` **Hook**: `useMusicLists` **Pages**: WeeklySongsLeaderboard, WavlakePicks |
 | [NIP-53](https://github.com/nostr-protocol/nips/blob/master/53.md) | Live Activities | ✅ Live streams and events | **Pages**: Events, live streaming **Hooks**: `useLiveEvents`, `useLiveStream`, `useLiveChat` **Components**: Live chat systems |
@@ -106,6 +108,8 @@ This table shows all Nostr event kinds used throughout the application with thei
 | **1** | Regular | [NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md) | Short text notes | Social posts, messages | **Component**: `LiveStreamToolbar` **Hook**: `useNostrPublish` **Feature**: Social posting |
 | **3** | Replaceable | [NIP-02](https://github.com/nostr-protocol/nips/blob/master/02.md) | Contact/follow lists | Follow relationships | **Hook**: `useFollows` **Component**: `FollowButton` **Feature**: Social connections |
 | **4** | Regular | [NIP-04](https://github.com/nostr-protocol/nips/blob/master/04.md) | Encrypted DMs (legacy) | Fallback encrypted messaging | **Lib**: `nip17.ts` **Feature**: Legacy encrypted messaging |
+| **5** | Regular | [NIP-09](https://github.com/nostr-protocol/nips/blob/master/09.md) | Event deletion | Remove reactions and content | **Hook**: `useReactions` **Feature**: Reaction removal via deletion events |
+| **7** | Regular | [NIP-25](https://github.com/nostr-protocol/nips/blob/master/25.md) | Reactions | Like and emoji reactions | **Hook**: `useReactions` **Component**: `ReactionButton` **Feature**: Interactive message reactions with tap-to-like and long-press emoji selector |
 | **13** | Regular | [NIP-59](https://github.com/nostr-protocol/nips/blob/master/59.md) | Seal (encrypted) | Gift wrap message sealing | **Lib**: `nip17-proper.ts` **Feature**: Message privacy layer |
 | **14** | Regular | [NIP-17](https://github.com/nostr-protocol/nips/blob/master/17.md) | Chat message (rumor) | Private message content | **Lib**: `nip17-proper.ts` **Feature**: Private message payload |
 | **20** | Regular | [NIP-68](https://github.com/nostr-protocol/nips/blob/master/68.md) | Picture events | Photo galleries | **Hook**: `usePictures` **Page**: Photos **Component**: `PictureGrid` |
@@ -255,6 +259,8 @@ src/
 │   │   └── AudioRoomBrowser.tsx # Room discovery
 │   ├── comments/                 # Comment system (NIP-22)
 │   │   └── CommentsSection.tsx  # Threaded discussions
+│   ├── reactions/                # Reaction system (NIP-25)
+│   │   └── ReactionButton.tsx   # Interactive tap-to-like and long-press emoji reactions
 │   ├── livestream/               # Live streaming (NIP-53)
 │   │   ├── LiveChat.tsx         # Live chat interface
 │   │   ├── LiveStreamToolbar.tsx # Stream controls
@@ -280,6 +286,7 @@ src/
 │   ├── useNIP100.ts             # WebRTC signaling
 │   ├── useTrackSuggestionNotifications.ts # NIP-17 private messages
 │   ├── useNotificationReadStatus.ts # NIP-78 app data
+│   ├── useReactions.ts          # NIP-25 reactions (likes and emojis)
 │   ├── useUploadFile.ts         # File uploads (NIP-96)
 │   └── ...                      # 10+ additional specialized hooks
 ├── pages/                        # Page components (19+ pages)
