@@ -128,7 +128,8 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
       // NRTC Pattern: Always create new connections and overwrite existing ones
       // This handles the race condition where both users see each other's "connect" events
       if (peers[id]) {
-        console.log(`Overwriting existing connection for ${id}`);
+        const existingState = peers[id].signalingState;
+        console.log(`Overwriting existing connection for ${id} (was in ${existingState} state)`);
         peers[id].close();
         delete peers[id];
       }
@@ -189,7 +190,8 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
       // NRTC Pattern: Always accept offers and overwrite existing connections
       // This prevents race conditions when both users try to initiate simultaneously
       if (peers[id]) {
-        console.log(`Replacing existing connection for ${id} with new offer`);
+        const existingState = peers[id].signalingState;
+        console.log(`Replacing existing connection for ${id} with new offer (was in ${existingState} state)`);
         peers[id].close();
         delete peers[id];
       }
@@ -253,6 +255,13 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
       };
 
       if (!answer) return;
+
+      // NRTC Pattern: Check connection state before setting answer
+      // Only set remote description if we're in the correct state
+      if (pc.signalingState !== 'have-local-offer') {
+        console.log(`Ignoring answer from ${id} - wrong signaling state: ${pc.signalingState}`);
+        return;
+      }
 
       const desc = new RTCSessionDescription(answer);
       await pc.setRemoteDescription(desc);

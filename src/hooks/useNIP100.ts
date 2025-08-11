@@ -558,7 +558,10 @@ export function useNIP100() {
     }
     setIsListening(false);
     setAvailableRooms(new Map());
-    processedEventsRef.current.clear(); // Clear processed events
+    
+    // Clear processed events to allow reprocessing on rejoin
+    // This is important for reconnection scenarios
+    processedEventsRef.current.clear();
   }, []);
 
   // Cleanup on unmount
