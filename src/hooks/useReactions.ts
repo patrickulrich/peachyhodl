@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNostr } from "@nostrify/react";
 import { useNostrPublish } from "./useNostrPublish";
 import { useCurrentUser } from "./useCurrentUser";
+import { useEffect, useRef, useMemo } from "react";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 const PEACHY_HEX = '0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820';
@@ -23,7 +24,7 @@ export function useReactions(eventId: string | null) {
   const { mutate: publishEvent } = useNostrPublish();
   const queryClient = useQueryClient();
 
-  const queryKey = ["reactions", eventId];
+  const queryKey = useMemo(() => ["reactions", eventId], [eventId]);
 
   const { data: reactions = [], isLoading } = useQuery({
     queryKey,
@@ -42,9 +43,55 @@ export function useReactions(eventId: string | null) {
       return events;
     },
     enabled: !!eventId,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 1000, // Reduced from 30 seconds to 1 second for faster moderation updates
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // Set up real-time subscription for new reactions
+  const subscriptionRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    // Cancel any existing subscription
+    if (subscriptionRef.current) {
+      subscriptionRef.current.abort();
+    }
+
+    // Create new subscription
+    subscriptionRef.current = new AbortController();
+    const signal = subscriptionRef.current.signal;
+
+    const subscribeToReactions = async () => {
+      try {
+        const reactionStream = nostr.req([{
+          kinds: [7],
+          "#e": [eventId],
+        }], { signal });
+
+        for await (const msg of reactionStream) {
+          if (msg[0] === 'EVENT') {
+            // Immediately invalidate queries to trigger refetch with new reaction
+            queryClient.invalidateQueries({ queryKey });
+          } else if (msg[0] === 'CLOSED') {
+            break;
+          }
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.warn("Reaction subscription error:", error);
+        }
+      }
+    };
+
+    subscribeToReactions();
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.abort();
+      }
+    };
+  }, [eventId, nostr, queryClient, queryKey]);
 
   // Process reactions into summary
   const reactionSummary: ReactionSummary = {

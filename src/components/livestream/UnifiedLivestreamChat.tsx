@@ -15,6 +15,8 @@ import { useAuthor as useZapAuthor } from "@/hooks/useAuthor";
 import { getTwitchAuthUrl, TWITCH_CHANNEL } from "@/lib/twitch";
 import { NoteContent } from "@/components/NoteContent";
 import { ReactionButton } from "@/components/reactions/ReactionButton";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import LoginDialog from "@/components/auth/LoginDialog";
 import type { NostrEvent } from "@nostrify/nostrify";
 import type { TwitchMessage } from "@/lib/twitch";
 import { cn } from "@/lib/utils";
@@ -482,11 +484,13 @@ export function UnifiedLivestreamChat() {
   const liveEvent = nostrData?.liveEvent;
   const liveEventId = liveEvent?.id;
   const { data: zapNotifications = [] } = useZapNotifications(liveEventId);
+  const { user } = useCurrentUser();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
   const prevMessagesLength = useRef(0);
   const isAtBottomRef = useRef(true);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
 
   // Merge and sort all messages by timestamp
   const unifiedMessages = useMemo(() => {
@@ -621,6 +625,20 @@ export function UnifiedLivestreamChat() {
     window.location.href = getTwitchAuthUrl();
   };
 
+  const handlePeachClick = () => {
+    if (!user) {
+      setIsLoginDialogOpen(true);
+    }
+  };
+
+  const handleLoginClose = () => {
+    setIsLoginDialogOpen(false);
+  };
+
+  const handleLoginSuccess = () => {
+    setIsLoginDialogOpen(false);
+  };
+
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
@@ -628,9 +646,21 @@ export function UnifiedLivestreamChat() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold">
+              <h1 
+                className={cn(
+                  "text-2xl font-bold",
+                  !user && "cursor-pointer hover:scale-110 transition-transform"
+                )}
+                onClick={handlePeachClick}
+                title={!user ? "Click to login" : "Welcome to Peachy's chat"}
+              >
                 🍑
               </h1>
+              {user && (
+                <Badge variant="outline" className="text-xs">
+                  Signed in
+                </Badge>
+              )}
             </div>
             
             {/* Twitch Connection Status */}
@@ -745,6 +775,13 @@ export function UnifiedLivestreamChat() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Login Dialog */}
+      <LoginDialog
+        isOpen={isLoginDialogOpen}
+        onClose={handleLoginClose}
+        onLogin={handleLoginSuccess}
+      />
     </div>
   );
 }

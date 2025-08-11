@@ -32,9 +32,12 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
   const longPressTimer = useRef<NodeJS.Timeout>();
   const pressStartTime = useRef<number>();
 
-  if (!user) return null;
+  // Show reaction button even when not logged in, but disable interactions
+  const isLoggedIn = !!user;
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isLoggedIn) return; // Don't handle interactions when not logged in
+    
     e.preventDefault();
     pressStartTime.current = Date.now();
     setIsLongPress(false);
@@ -50,6 +53,8 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
   };
 
   const handleMouseUp = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isLoggedIn) return; // Don't handle interactions when not logged in
+    
     e.preventDefault();
     
     if (longPressTimer.current) {
@@ -78,6 +83,8 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
   };
 
   const handleEmojiSelect = (emoji: string) => {
+    if (!isLoggedIn) return; // Don't handle interactions when not logged in
+    
     // Check if user already reacted with this emoji
     const existingReaction = reactionSummary.reactions.find(r => 
       r.content === emoji && r.userReacted
@@ -97,7 +104,7 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
 
   return (
     <div className={cn("flex items-center gap-1", className)}>
-      <Popover open={emojiPopoverOpen} onOpenChange={setEmojiPopoverOpen}>
+      <Popover open={emojiPopoverOpen && isLoggedIn} onOpenChange={(open) => isLoggedIn && setEmojiPopoverOpen(open)}>
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
@@ -105,9 +112,10 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
             className={cn(
               "h-6 px-2 text-xs transition-colors",
               userHasReacted && "text-red-500 hover:text-red-600",
-              !userHasReacted && "text-muted-foreground hover:text-foreground"
+              !userHasReacted && "text-muted-foreground hover:text-foreground",
+              !isLoggedIn && "opacity-60 cursor-not-allowed"
             )}
-            disabled={isAddingReaction}
+            disabled={isAddingReaction || !isLoggedIn}
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
