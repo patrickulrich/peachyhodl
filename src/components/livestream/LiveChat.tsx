@@ -88,12 +88,12 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
           <span className="text-xs text-muted-foreground flex-shrink-0">
             {new Date(message.created_at * 1000).toLocaleTimeString()}
           </span>
+          <div className="ml-auto">
+            <ReactionButton message={message} />
+          </div>
         </div>
         <div className="text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
           {parsedContent}
-        </div>
-        <div className="mt-1">
-          <ReactionButton message={message} />
         </div>
       </div>
     </div>

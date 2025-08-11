@@ -150,6 +150,7 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
               <Zap className="h-3 w-3 mr-1" />
               Nostr
             </Badge>
+            <ReactionButton message={message} className="ml-2" />
             {isPeachy && (
               <Badge variant="default" className="bg-gradient-to-r from-pink-500 to-pink-600 text-white border-0 flex-shrink-0">
                 HOST
@@ -159,9 +160,6 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
           </div>
           <div className="text-sm" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
             <NoteContent event={message} className="break-words overflow-wrap-anywhere" />
-          </div>
-          <div className="mt-1">
-            <ReactionButton message={message} />
           </div>
         </div>
       </div>
@@ -552,21 +550,7 @@ export function UnifiedLivestreamChat() {
     return unified.sort((a, b) => a.timestamp - b.timestamp).slice(-500);
   }, [nostrData?.messages, twitchMessages, zapNotifications]);
 
-  // Get live event status
-  const getEventStatus = () => {
-    if (!liveEvent) return null;
-    const statusTag = liveEvent.tags.find(([t]) => t === "status");
-    return statusTag?.[1] || "unknown";
-  };
-
-  const getEventTitle = () => {
-    if (!liveEvent) return "Peachy's Chat";
-    const titleTag = liveEvent.tags.find(([t]) => t === "title");
-    return titleTag?.[1] || "Peachy's Chat";
-  };
-
-  const status = getEventStatus();
-  const title = getEventTitle();
+  // Note: status and title functions removed since we're not displaying them anymore
 
   // Set up scroll listener to detect when user is at bottom
   useEffect(() => {
@@ -644,20 +628,9 @@ export function UnifiedLivestreamChat() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-yellow-500 bg-clip-text text-transparent">
-                🍑 {title}
+              <h1 className="text-2xl font-bold">
+                🍑
               </h1>
-              {status === "live" && (
-                <Badge variant="destructive" className="animate-pulse">
-                  <span className="mr-1">●</span> LIVE
-                </Badge>
-              )}
-              {status === "planned" && (
-                <Badge variant="secondary">Scheduled</Badge>
-              )}
-              {status === "ended" && (
-                <Badge variant="outline">Ended</Badge>
-              )}
             </div>
             
             {/* Twitch Connection Status */}
