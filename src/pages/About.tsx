@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FollowButton } from '@/components/FollowButton';
 import { ZapDialog } from '@/components/ZapDialog';
+import { LinkTreeShowcase } from '@/components/LinkTreeShowcase';
 import { useAuthor } from '@/hooks/useAuthor';
 import { Bitcoin, Zap, Users, Globe } from 'lucide-react';
 import type { Event } from 'nostr-tools';
@@ -156,6 +157,9 @@ Let's make the future peachy together! 🍑⚡`}
             </p>
           </CardContent>
         </Card>
+
+        {/* Links & Resources Section */}
+        <LinkTreeShowcase className="mt-8" />
       </div>
     </MainLayout>
   );
