@@ -93,14 +93,6 @@ A decentralized personal website and social platform built entirely on Nostr pro
 | [NIP-94](https://github.com/nostr-protocol/nips/blob/master/94.md) | File Metadata | ✅ Media file handling | **Hook**: `useUploadFile` **Components**: File upload components **Feature**: Media metadata |
 | [NIP-96](https://github.com/nostr-protocol/nips/blob/master/96.md) | File Storage | ✅ Blossom server uploads | **Hook**: `useUploadFile` **Components**: `EditProfileForm`, `IconSelector`, `SignupDialog` **Feature**: File storage |
 | [NIP-100](https://github.com/chakany/nips/blob/webrtc/100.md) | WebRTC Audio | ✅ Real-time voice chat with moderation | **Component**: `AudioRoom` **Hook**: `useNIP100` **Page**: AudioRooms **Kind**: 25050 for signaling |
-| **Custom NIP-31337** | Music Standard | ✅ Proposed native music format | **Future**: Native Nostr music standard implementation **Kind**: 31337 |
-| **Custom NIP-32123** | Wavlake Music | ✅ Bitcoin music compatibility | **Components**: Music player, track components **Pages**: WavlakeTrack, WavlakeAlbum, WavlakeArtist **Hook**: `useWavlake` |
-
-### Custom Features
-
-| Feature | Description | Implementation | Where Used |
-|---------|-------------|----------------|------------|
-| **Single-Vote System** | One-vote-per-user track rankings via NIP-51 replaceable events | **Pages**: WeeklySongsLeaderboard, WavlakeTrack, WavlakeExplore **Hook**: Voting via `useNostrPublish` **Kind**: 30003 with d-tag "peachy-song-vote" |
 
 ## 🎯 Event Kinds Reference
 
@@ -120,15 +112,15 @@ This table shows all Nostr event kinds used throughout the application with thei
 | **1311** | Regular | [NIP-53](https://github.com/nostr-protocol/nips/blob/master/53.md) | Live chat messages | Livestream chat | **Hook**: `useLiveChat` **Components**: `LiveChat`, `UnifiedLivestreamChat` **Feature**: Live chat |
 | **9735** | Regular | [NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md) | Zap receipts | Lightning payment confirmations | **Hook**: `useZaps`, `useZapNotifications` **Component**: `ZapButton` **Feature**: Payment tracking |
 | **25050** | Regular | [NIP-100](https://github.com/chakany/nips/blob/webrtc/100.md) | WebRTC signaling | Voice chat coordination | **Hook**: `useNIP100` **Component**: `AudioRoom` **Feature**: Real-time voice communication |
-| **30003** | Addressable | [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Bookmark sets | Curated link collections, voting | **Hook**: `usePeachyLinktree` **Pages**: WeeklySongsLeaderboard, WavlakeTrack **Feature**: Bookmarks and voting |
+| **30003** | Addressable | [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Bookmark sets | Community voting system for tracks | **Hook**: `usePeachyLinktree` **Pages**: WeeklySongsLeaderboard, WavlakeTrack, WavlakeExplore **Feature**: Single-vote track rankings with d-tag "peachy-song-vote" |
 | **30004** | Addressable | [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Curation sets | Music playlists and collections | **Hook**: `useMusicLists` **Component**: `ManagePicksDialog` **Feature**: Music curation |
 | **30005** | Addressable | [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Interest sets | Topic-based collections | **Hook**: `useMusicLists` **Feature**: Content categorization (potential) |
 | **30023** | Addressable | [NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md) | Long-form articles | Blog posts and articles | **Hook**: `useBlogPosts` **Page**: Blog **Feature**: Long-form content publishing |
 | **30024** | Addressable | [NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md) | Draft articles | Unpublished blog content | **Hook**: `useBlogPosts` **Feature**: Draft content management |
 | **30078** | Addressable | [NIP-78](https://github.com/nostr-protocol/nips/blob/master/78.md) | App-specific data | Notification read status | **Hook**: `useNotificationReadStatus` **Page**: NotificationsPage **Feature**: App state persistence |
 | **30311** | Addressable | [NIP-53](https://github.com/nostr-protocol/nips/blob/master/53.md) | Live events | Livestream definitions | **Hook**: `useLiveEvents`, `useLiveStream` **Pages**: Events, Index **Feature**: Live streaming events |
-| **31337** | Addressable | [Custom NIP](./NIP.md#nip-31337-proposed-music-standard-events) | Proposed music standard | Future music events | **Hook**: `useMusicLists` **Feature**: Native Nostr music format (proposed) |
-| **32123** | Addressable | [Custom NIP](./NIP.md#nip-32123-music-track-events-wavlake-compatibility) | Wavlake music tracks | Bitcoin music integration | **Hook**: `useMusicLists` **Pages**: WavlakeTrack, WavlakeAlbum **Feature**: Wavlake music compatibility |
+| **31337** | Addressable | [Custom Kind](./NIP.md#nip-31337-proposed-music-standard-events) | Nostr-native music format | Tag-based metadata for better relay filtering | **Hook**: `useMusicLists` **Feature**: Proposed standard with title, artist, album, duration, genre, and url tags |
+| **32123** | Addressable | [Custom Kind](./NIP.md#nip-32123-music-track-events-wavlake-compatibility) | Wavlake music compatibility | NOM specification with JSON metadata in content | **Hook**: `useMusicLists` **Pages**: WavlakeTrack, WavlakeAlbum, WavlakeArtist **Feature**: Full Bitcoin music platform integration |
 
 ### Event Kind Categories
 
@@ -136,6 +128,14 @@ This table shows all Nostr event kinds used throughout the application with thei
 - **Replaceable Events** (10000 ≤ kind < 20000): Only latest per pubkey+kind is kept  
 - **Addressable Events** (30000 ≤ kind < 40000): Latest per pubkey+kind+d-tag combination
 - **Legacy Kinds** (<1000): Special cases with individual storage rules
+
+### Custom Features
+
+| Feature | Description | Implementation | Technical Details |
+|---------|-------------|----------------|-------------------|
+| **Custom Kind 31337** | Nostr-native music standard with tag-based metadata | ✅ Proposed format for better relay filtering and queryability | **Metadata**: Uses tags for title, artist, album, duration, genre, url with MIME types **Benefits**: Efficient relay-level filtering, extensible tag system **Status**: Proposed standard for future adoption |
+| **Custom Kind 32123** | Wavlake music compatibility using NOM specification | ✅ Full integration with Bitcoin music platform | **Format**: JSON metadata in content field following NOM spec **Data**: title, creator, duration, enclosure URL, GUID **Integration**: Direct streaming from Wavlake with album art and waveform data |
+| **Single-Vote System** | Community-driven track rankings with one vote per user | ✅ Replaceable events ensure fair voting | **Mechanism**: Kind 30003 addressable events with d-tag "peachy-song-vote" **Voting**: Each user's vote replaces previous vote, preventing spam **Leaderboard**: Real-time aggregation of votes across all users for weekly rankings |
 
 ## 🚀 Quick Start
 
