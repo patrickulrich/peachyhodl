@@ -591,17 +591,21 @@ export function UnifiedLivestreamChat() {
         const scrollToBottom = () => {
           const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
           if (scrollContainer) {
-            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            // Force scroll to absolute bottom
+            scrollContainer.scrollTop = scrollContainer.scrollHeight + 1000;
           }
         };
 
-        // Use requestAnimationFrame for immediate scroll, then follow up to ensure it sticks
+        // Immediate scroll
+        scrollToBottom();
+        // Use RAF for after render
         requestAnimationFrame(() => {
           scrollToBottom();
+          // Additional attempts for any delayed rendering
+          setTimeout(scrollToBottom, 10);
+          setTimeout(scrollToBottom, 50);
+          setTimeout(scrollToBottom, 100);
         });
-        // Follow up scrolls to handle any rendering delays
-        setTimeout(scrollToBottom, 50);
-        setTimeout(scrollToBottom, 100);
       }
     }
     
@@ -624,9 +628,9 @@ export function UnifiedLivestreamChat() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="border-b bg-card">
+      <div className="border-b bg-card flex-shrink-0">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
@@ -678,14 +682,14 @@ export function UnifiedLivestreamChat() {
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
-        <Card className="h-[calc(100vh-8rem)]">
+      <div className="flex-1 container mx-auto px-4 py-6 max-w-4xl overflow-hidden">
+        <Card className="h-full flex flex-col">
           {twitchError && (
-            <div className="p-4 border-b">
+            <div className="p-4 border-b flex-shrink-0">
               <p className="text-sm text-destructive">{twitchError}</p>
             </div>
           )}
-          <CardContent className="p-0 h-full">
+          <CardContent className="p-0 flex-1 min-h-0">
             <ScrollArea className="h-full" ref={scrollAreaRef}>
               <div className="p-4">
                 {isNostrLoading ? (
