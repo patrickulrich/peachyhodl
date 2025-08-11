@@ -280,8 +280,7 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
         type: 'channel.chat.message',
         version: '1',
         condition: {
-          broadcaster_user_id: broadcasterId,
-          user_id: broadcasterId
+          broadcaster_user_id: broadcasterId
         }
       }
     ];
