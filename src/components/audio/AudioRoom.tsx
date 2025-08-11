@@ -326,21 +326,53 @@ export function AudioRoom() {
   // Cleanup on unmount and beforeunload (NRTC pattern)
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (isJoined) {
-        // Synchronously publish disconnect event
+      if (isJoined && user) {
+        // Use sendBeacon for more reliable disconnect notification
+        // This is more likely to succeed than regular fetch during page unload
+        try {
+          const disconnectEvent = {
+            kind: 25050,
+            content: `Leaving room: ${roomId}`,
+            tags: [['type', 'disconnect'], ['r', roomId]],
+            created_at: Math.floor(Date.now() / 1000),
+            pubkey: user.pubkey,
+          };
+          
+          // Try to send via beacon (most reliable during unload)
+          if (navigator.sendBeacon) {
+            const eventData = JSON.stringify(disconnectEvent);
+            navigator.sendBeacon('/api/disconnect', eventData); // This would need a server endpoint
+          }
+          
+          // Fallback to regular publish (may or may not succeed)
+          publishDisconnect(roomId);
+        } catch (error) {
+          console.error('Failed to send disconnect on beforeunload:', error);
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && isJoined) {
+        // Tab became hidden - send disconnect as user might be leaving
         publishDisconnect(roomId);
+      } else if (!document.hidden && isJoined) {
+        // Tab became visible again - send connect to rejoin
+        publishConnect(roomId);
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (isJoined) {
         leaveRoom();
       }
     };
-  }, [isJoined, leaveRoom, publishDisconnect, roomId]);
+  }, [isJoined, leaveRoom, publishDisconnect, publishConnect, roomId, user]);
 
   if (!user) {
     return (

@@ -46,6 +46,10 @@ export function useNIP100() {
   const [moderators, setModerators] = useState<Set<string>>(new Set([PEACHY_PUBKEY]));
   const [bannedUsers, setBannedUsers] = useState<Set<string>>(new Set());
   
+  // Participant presence tracking
+  const participantTimestampsRef = useRef<Map<string, number>>(new Map());
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   const eventHandlersRef = useRef<Map<string, (event: WebRTCSignalingEvent) => void>>(new Map());
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
   const processedEventsRef = useRef<Set<string>>(new Set()); // Prevent duplicate event processing
@@ -332,6 +336,49 @@ export function useNIP100() {
     eventHandlersRef.current.delete(eventType);
   }, []);
 
+  // Cleanup stale participants (haven't been seen in 60 seconds)
+  const cleanupStaleParticipants = useCallback(() => {
+    const now = Date.now();
+    const staleThreshold = 60000; // 60 seconds
+    
+    participantTimestampsRef.current.forEach((timestamp, pubkey) => {
+      if (now - timestamp > staleThreshold) {
+        console.log(`Removing stale participant: ${pubkey.substring(0, 8)}...`);
+        participantTimestampsRef.current.delete(pubkey);
+        
+        // Remove from available rooms
+        setAvailableRooms(prev => {
+          const newRooms = new Map(prev);
+          newRooms.forEach((room, roomId) => {
+            if (room.participants.includes(pubkey)) {
+              room.participants = room.participants.filter(p => p !== pubkey);
+              if (room.participants.length === 0) {
+                newRooms.delete(roomId);
+              } else {
+                newRooms.set(roomId, room);
+              }
+            }
+          });
+          return newRooms;
+        });
+      }
+    });
+  }, []);
+
+  // Send periodic heartbeat to maintain presence
+  const sendHeartbeat = useCallback(async () => {
+    if (!user || connectedRooms.size === 0) return;
+    
+    try {
+      // Send connect event as heartbeat for each connected room
+      for (const roomId of connectedRooms) {
+        await publishConnect(roomId);
+      }
+    } catch (error) {
+      console.error('Failed to send heartbeat:', error);
+    }
+  }, [user, connectedRooms, publishConnect]);
+
   // Start listening for WebRTC signaling events
   const startListening = useCallback(async () => {
     if (!user || isListening) return;
@@ -414,8 +461,11 @@ export function useNIP100() {
             handler(signalingEvent);
           }
 
-          // Update available rooms for connect events
+          // Update available rooms and participant timestamps for connect events  
           if (typeTag === 'connect' && roomId) {
+            // Update participant timestamp
+            participantTimestampsRef.current.set(event.pubkey, Date.now());
+            
             setAvailableRooms(prev => {
               const newRooms = new Map(prev);
               const existing = newRooms.get(roomId) || {
@@ -438,6 +488,9 @@ export function useNIP100() {
 
           // Remove from available rooms for disconnect events
           if (typeTag === 'disconnect' && roomId) {
+            // Remove participant timestamp
+            participantTimestampsRef.current.delete(event.pubkey);
+            
             setAvailableRooms(prev => {
               const newRooms = new Map(prev);
               const room = newRooms.get(roomId);
@@ -556,9 +609,19 @@ export function useNIP100() {
       // Start subscription in background
       startSubscription();
       
+      // Start heartbeat and cleanup timers
+      heartbeatIntervalRef.current = setInterval(() => {
+        sendHeartbeat();
+        cleanupStaleParticipants();
+      }, 30000); // Every 30 seconds
+      
       subscriptionRef.current = { 
         close: () => {
           abortController.abort();
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current);
+            heartbeatIntervalRef.current = null;
+          }
         } 
       };
 
@@ -571,7 +634,7 @@ export function useNIP100() {
       });
       setIsListening(false);
     }
-  }, [user, isListening, nostr, decryptContent, toast]);
+  }, [user, isListening, nostr, decryptContent, toast, sendHeartbeat, cleanupStaleParticipants]);
 
   // Stop listening for events
   const stopListening = useCallback(() => {
