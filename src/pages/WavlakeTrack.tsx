@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,10 +11,12 @@ import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
 import { AddToPlaylistButton } from '@/components/music/AddToPlaylistButton';
 import { useWavlakeTrack } from '@/hooks/useWavlake';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useToast } from '@/hooks/useToast';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { 
   Music, 
-  ExternalLink, 
+  Heart, 
   Clock, 
   Calendar,
   User,
@@ -33,6 +35,8 @@ const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc3
 const WavlakeTrack = () => {
   const { trackId } = useParams<{ trackId: string }>();
   const { user } = useCurrentUser();
+  const { mutateAsync: publishEvent } = useNostrPublish();
+  const { toast } = useToast();
   
   // For now, we'll use a placeholder hook until we implement the actual Wavlake API integration
   // TODO: Implement useWavlakeTrack hook to fetch track details from Wavlake API
@@ -68,6 +72,59 @@ const WavlakeTrack = () => {
       pubkey: track.artistNpub,
     };
   }, [track]);
+
+  // Vote for track function
+  const handleVoteForTrack = useCallback(async () => {
+    if (!user) {
+      toast({
+        title: 'Login Required',
+        description: 'Please log in to vote for songs.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!trackData) {
+      toast({
+        title: 'Track Not Available',
+        description: 'Cannot vote for this track.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Create the voting event using Kind 30003 (Bookmark Sets)
+      const votingEvent = {
+        kind: 30003,
+        content: '',
+        tags: [
+          ['d', 'peachy-song-vote'], // Our specific identifier
+          ['title', 'Weekly Song Vote'],
+          ['description', 'My vote for the best song of the week'],
+          ['r', `https://wavlake.com/track/${trackData.id}`], // Reference to the Wavlake track
+          ['track_title', trackData.title],
+          ['track_artist', trackData.artist],
+          ['track_id', trackData.id]
+        ]
+      };
+
+      await publishEvent(votingEvent);
+
+      toast({
+        title: 'Vote Submitted!',
+        description: `Voted for "${trackData.title}" by ${trackData.artist}`,
+      });
+
+    } catch (error) {
+      console.error('Failed to submit vote:', error);
+      toast({
+        title: 'Vote Failed',
+        description: 'Could not submit your vote. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [user, publishEvent, toast, trackData]);
 
   useSeoMeta({
     title: trackData ? `${trackData.title || 'Unknown Track'} - ${trackData.artist || 'Unknown Artist'}` : 'Track',
@@ -267,16 +324,13 @@ const WavlakeTrack = () => {
                       </SuggestTrackModal>
                     )}
 
-                    <Button variant="outline" asChild>
-                      <a
-                        href={`https://wavlake.com/track/${trackData.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Open in Wavlake
-                      </a>
+                    <Button 
+                      variant="outline"
+                      onClick={handleVoteForTrack}
+                      className="flex items-center gap-2"
+                    >
+                      <Heart className="h-4 w-4" />
+                      Vote for Top Track
                     </Button>
                   </div>
                 </div>
