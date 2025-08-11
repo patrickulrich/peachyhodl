@@ -94,18 +94,22 @@ export function AudioRoom() {
     }
 
     try {
-      // NRTC Pattern: Simple join flow
-      // 1. Initialize media
+      // NRTC Pattern: Ensure proper timing for media and connections
+      // 1. Initialize media and wait for stream to be ready
       await initializeMedia(false, true); // Audio only by default
       
-      // 2. Start listening for events (real-time subscription)
+      // 2. Small delay to ensure localStreamRef is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 3. Start listening for events (real-time subscription)
+      // This will discover existing participants and create connections
       await startListening();
       
-      // 3. Immediately announce presence (no complex state management)
+      // 4. Immediately announce presence (no complex state management)
       // NRTC pattern: New joiner broadcasts connect, existing users will initiate connections TO us
       await publishConnect(roomId, []); // Empty array means broadcast to all
       
-      // 4. Set joined state AFTER announcing (for UI only)
+      // 5. Set joined state AFTER announcing (for UI only)
       setIsJoined(true);
       
       toast({

@@ -84,9 +84,13 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
   // NRTC Pattern: Helper functions for peer management
   const addLocalStream = useCallback((pc: RTCPeerConnection) => {
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => {
+      const tracks = localStreamRef.current.getTracks();
+      console.log(`Adding ${tracks.length} local tracks to peer connection`);
+      tracks.forEach((track) => {
         pc.addTrack(track, localStreamRef.current!);
       });
+    } else {
+      console.warn('No local stream available when adding to peer connection');
     }
   }, []);
 
