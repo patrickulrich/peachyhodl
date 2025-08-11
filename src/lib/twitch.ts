@@ -45,7 +45,7 @@ export function getTwitchAuthUrl(): string {
     client_id: TWITCH_CLIENT_ID,
     redirect_uri: TWITCH_REDIRECT_URI,
     response_type: 'token',
-    scope: 'chat:read chat:edit'
+    scope: 'chat:read chat:edit user:read:chat moderator:read:followers bits:read channel:read:subscriptions'
   });
   
   return `https://id.twitch.tv/oauth2/authorize?${params.toString()}`;
@@ -71,6 +71,240 @@ export function parseTwitchToken(): string | null {
 
 export function clearTwitchToken(): void {
   localStorage.removeItem('twitch_token');
+}
+
+// EventSub WebSocket session management
+export function storeTwitchSession(sessionId: string): void {
+  localStorage.setItem('twitch_eventsub_session', sessionId);
+}
+
+export function getTwitchSession(): string | null {
+  return localStorage.getItem('twitch_eventsub_session');
+}
+
+export function clearTwitchSession(): void {
+  localStorage.removeItem('twitch_eventsub_session');
+}
+
+// Get broadcaster user ID (needed for EventSub subscriptions)
+export async function getBroadcasterUserId(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch('https://api.twitch.tv/helix/users?login=' + TWITCH_CHANNEL, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Client-Id': TWITCH_CLIENT_ID
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to fetch broadcaster user ID:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.data?.[0]?.id || null;
+  } catch (error) {
+    console.error('Error fetching broadcaster user ID:', error);
+    return null;
+  }
+}
+
+// EventSub subscription types
+export interface EventSubSubscription {
+  type: string;
+  version: string;
+  condition: Record<string, string>;
+  transport: {
+    method: 'websocket';
+    session_id: string;
+  };
+}
+
+// Create EventSub subscription
+export async function createEventSubSubscription(
+  accessToken: string,
+  subscription: EventSubSubscription
+): Promise<boolean> {
+  try {
+    const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Client-Id': TWITCH_CLIENT_ID,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(subscription)
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Failed to create EventSub subscription:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error creating EventSub subscription:', error);
+    return false;
+  }
+}
+
+// EventSub message types
+export interface EventSubMessage {
+  metadata: {
+    message_id: string;
+    message_type: 'session_welcome' | 'session_keepalive' | 'notification' | 'session_reconnect' | 'revocation';
+    message_timestamp: string;
+    subscription_type?: string;
+    subscription_version?: string;
+  };
+  payload: {
+    session?: {
+      id: string;
+      keepalive_timeout_seconds?: number;
+      reconnect_url?: string;
+    };
+    event?: Record<string, unknown>;
+    subscription?: {
+      type: string;
+      version: string;
+      condition: Record<string, string>;
+      transport: {
+        method: string;
+        session_id: string;
+      };
+      created_at: string;
+    };
+  };
+}
+
+// Parse EventSub WebSocket message
+export function parseEventSubMessage(data: string): EventSubMessage | null {
+  try {
+    return JSON.parse(data) as EventSubMessage;
+  } catch (error) {
+    console.error('Failed to parse EventSub message:', error);
+    return null;
+  }
+}
+
+// Convert EventSub notification to TwitchMessage
+export function convertEventSubToTwitchMessage(message: EventSubMessage): TwitchMessage | null {
+  if (message.metadata.message_type !== 'notification' || !message.payload.event) return null;
+  
+  const { subscription_type } = message.metadata;
+  const event = message.payload.event as Record<string, unknown>;
+  
+  const baseId = message.metadata.message_id;
+  const timestamp = new Date(message.metadata.message_timestamp).getTime();
+  
+  switch (subscription_type) {
+    case 'channel.follow':
+      return {
+        id: baseId,
+        username: String(event.user_login || 'unknown'),
+        displayName: String(event.user_name || 'Unknown'),
+        message: `${String(event.user_name || 'Unknown')} is now following!`,
+        timestamp,
+        messageType: 'follow',
+        isFirstTimeFollower: true
+      };
+      
+    case 'channel.cheer':
+      return {
+        id: baseId,
+        username: String(event.user_login || 'anonymous'),
+        displayName: String(event.user_name || 'Anonymous'),
+        message: String(event.message || ''),
+        timestamp,
+        messageType: 'bits',
+        bits: Number(event.bits || 0)
+      };
+      
+    case 'channel.subscribe':
+      return {
+        id: baseId,
+        username: String(event.user_login || 'unknown'),
+        displayName: String(event.user_name || 'Unknown'),
+        message: `${String(event.user_name || 'Unknown')} subscribed!`,
+        timestamp,
+        messageType: 'subscription',
+        isResub: false,
+        subTier: String(event.tier) === '1000' ? '1000' : String(event.tier) === '2000' ? '2000' : String(event.tier) === '3000' ? '3000' : 'Prime',
+        subMonths: 1
+      };
+      
+    case 'channel.subscription.message': {
+      const messageObj = event.message as { text?: string } | undefined;
+      return {
+        id: baseId,
+        username: String(event.user_login || 'unknown'),
+        displayName: String(event.user_name || 'Unknown'),
+        message: messageObj?.text || `${String(event.user_name || 'Unknown')} resubscribed!`,
+        timestamp,
+        messageType: 'subscription',
+        isResub: true,
+        subTier: String(event.tier) === '1000' ? '1000' : String(event.tier) === '2000' ? '2000' : String(event.tier) === '3000' ? '3000' : 'Prime',
+        subMonths: Number(event.cumulative_months || 1)
+      };
+    }
+      
+    case 'channel.subscription.gift': {
+      const total = Number(event.total || 1);
+      return {
+        id: baseId,
+        username: String(event.user_login || 'anonymous'),
+        displayName: String(event.user_name || 'Anonymous'),
+        message: `${String(event.user_name || 'Anonymous')} gifted ${total} sub${total > 1 ? 's' : ''} to the community!`,
+        timestamp,
+        messageType: 'giftsub',
+        subTier: String(event.tier) === '1000' ? '1000' : String(event.tier) === '2000' ? '2000' : String(event.tier) === '3000' ? '3000' : 'Prime',
+        giftTotal: total,
+        giftMonths: 1
+      };
+    }
+      
+    case 'channel.raid': {
+      const viewers = Number(event.viewers || 0);
+      const fromName = String(event.from_broadcaster_user_name || 'Unknown');
+      return {
+        id: baseId,
+        username: String(event.from_broadcaster_user_login || 'unknown'),
+        displayName: fromName,
+        message: `${fromName} is raiding with ${viewers} viewers!`,
+        timestamp,
+        messageType: 'raid',
+        raidViewers: viewers,
+        raidFromChannel: fromName
+      };
+    }
+      
+    case 'channel.chat.message': {
+      const messageObj = event.message as { text?: string } | undefined;
+      const badgesArray = Array.isArray(event.badges) 
+        ? (event.badges as Array<{ set_id?: string }>).map(b => b.set_id || '').filter(Boolean)
+        : [];
+      
+      return {
+        id: baseId,
+        username: String(event.chatter_user_login || 'unknown'),
+        displayName: String(event.chatter_user_name || 'Unknown'),
+        message: messageObj?.text || '',
+        timestamp,
+        messageType: 'chat',
+        color: String(event.color || ''),
+        badges: badgesArray,
+        isMod: badgesArray.includes('moderator'),
+        isSubscriber: badgesArray.includes('subscriber'),
+        isVip: badgesArray.includes('vip'),
+        isBroadcaster: badgesArray.includes('broadcaster')
+      };
+    }
+      
+    default:
+      console.log('Unknown EventSub subscription type:', subscription_type);
+      return null;
+  }
 }
 
 // Parse IRC message tags

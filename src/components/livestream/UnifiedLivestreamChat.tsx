@@ -9,7 +9,7 @@ import { useNostr } from "@nostrify/react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
-import { useTwitchChat } from "@/hooks/useTwitchChat";
+import { useTwitchEventSub } from "@/hooks/useTwitchEventSub";
 import { getTwitchAuthUrl, TWITCH_CHANNEL } from "@/lib/twitch";
 import type { NostrEvent } from "@nostrify/nostrify";
 import type { TwitchMessage } from "@/lib/twitch";
@@ -344,7 +344,7 @@ export function UnifiedLivestreamChat() {
     isAuthenticated: isTwitchAuthenticated,
     error: twitchError,
     clearAuth: clearTwitchAuth
-  } = useTwitchChat();
+  } = useTwitchEventSub();
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
@@ -481,7 +481,7 @@ export function UnifiedLivestreamChat() {
                 <>
                   <Badge variant={isTwitchConnected ? "default" : "secondary"}>
                     <Twitch className="h-3 w-3 mr-1" />
-                    {isTwitchConnected ? 'Twitch Connected' : 'Twitch Connecting...'}
+                    {isTwitchConnected ? 'EventSub Connected' : 'EventSub Connecting...'}
                   </Badge>
                   <Button
                     size="sm"
@@ -498,7 +498,7 @@ export function UnifiedLivestreamChat() {
                   onClick={handleTwitchAuth}
                 >
                   <LogIn className="h-4 w-4 mr-2" />
-                  Connect Twitch Chat
+                  Connect Twitch Events
                 </Button>
               )}
             </div>
@@ -538,7 +538,7 @@ export function UnifiedLivestreamChat() {
                         onClick={handleTwitchAuth}
                       >
                         <Twitch className="h-4 w-4 mr-2" />
-                        Connect Twitch to see more messages
+                        Connect Twitch to see follows, bits, and subs
                       </Button>
                     )}
                   </div>
