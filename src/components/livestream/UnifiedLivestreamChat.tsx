@@ -13,11 +13,76 @@ import { useTwitchEventSub } from "@/hooks/useTwitchEventSub";
 import { useZapNotifications } from "@/hooks/useZapNotifications";
 import { useAuthor as useZapAuthor } from "@/hooks/useAuthor";
 import { getTwitchAuthUrl, TWITCH_CHANNEL } from "@/lib/twitch";
+import { NoteContent } from "@/components/NoteContent";
 import type { NostrEvent } from "@nostrify/nostrify";
 import type { TwitchMessage } from "@/lib/twitch";
 import { cn } from "@/lib/utils";
 
 const PEACHY_HEX = '0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820';
+
+// Component for parsing URLs and mentions in Twitch messages
+function TwitchMessageContent({ content }: { content: string }) {
+  const parsedContent = useMemo(() => {
+    // Regex to find URLs and @mentions
+    const regex = /(https?:\/\/[^\s]+)|(@\w+)/g;
+    
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let keyCounter = 0;
+    
+    while ((match = regex.exec(content)) !== null) {
+      const [fullMatch, url, mention] = match;
+      const index = match.index;
+      
+      // Add text before this match
+      if (index > lastIndex) {
+        parts.push(content.substring(lastIndex, index));
+      }
+      
+      if (url) {
+        // Handle URLs
+        parts.push(
+          <a 
+            key={`url-${keyCounter++}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            {url}
+          </a>
+        );
+      } else if (mention) {
+        // Handle @mentions
+        parts.push(
+          <span 
+            key={`mention-${keyCounter++}`}
+            className="text-purple-400 font-medium"
+          >
+            {mention}
+          </span>
+        );
+      }
+      
+      lastIndex = index + fullMatch.length;
+    }
+    
+    // Add any remaining text
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+    
+    // If no special content was found, just use the plain text
+    if (parts.length === 0) {
+      parts.push(content);
+    }
+    
+    return parts;
+  }, [content]);
+
+  return <>{parsedContent}</>;
+}
 
 // Using NostrEvent directly - no extensions needed for chat messages
 type ExtendedNostrEvent = NostrEvent;
@@ -91,9 +156,9 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
             )}
             <span className="text-xs text-muted-foreground ml-auto">{time}</span>
           </div>
-          <p className="text-sm mt-1 break-words whitespace-pre-wrap hyphens-auto">
-            {message.content}
-          </p>
+          <div className="text-sm mt-1">
+            <NoteContent event={message} className="break-words overflow-wrap-anywhere" />
+          </div>
         </div>
       </div>
     </div>
@@ -267,12 +332,12 @@ function TwitchChatMessage({ message, isNew }: TwitchChatMessageProps) {
               </p>
             )}
             
-            <p className={cn(
-              "text-sm break-words whitespace-pre-wrap hyphens-auto",
+            <div className={cn(
+              "text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap",
               isSpecialEvent && "font-medium"
             )}>
-              {message.message}
-            </p>
+              <TwitchMessageContent content={message.message} />
+            </div>
           </div>
         </div>
       </div>
@@ -324,9 +389,9 @@ function ZapNotificationMessage({ satoshis, zapType, senderPubkey, message, isNe
               Zapped ⚡ {satoshis.toLocaleString()} sats to {zapType === 'profile' ? "Peachy's profile" : "this stream"}!
             </p>
             {message && (
-              <p className="text-sm mt-1 break-words whitespace-pre-wrap hyphens-auto italic text-yellow-700">
+              <div className="text-sm mt-1 break-words overflow-wrap-anywhere whitespace-pre-wrap italic text-yellow-700">
                 "{message}"
-              </p>
+              </div>
             )}
           </div>
         </div>

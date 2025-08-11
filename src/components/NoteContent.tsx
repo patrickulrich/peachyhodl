@@ -20,8 +20,8 @@ export function NoteContent({
   const content = useMemo(() => {
     const text = event.content;
     
-    // Regex to find URLs, Nostr references, and hashtags
-    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
+    // Regex to find URLs, Nostr references, and hashtags (NIP-19, NIP-21, NIP-27)
+    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1|naddr1)([023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
     
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
@@ -60,6 +60,50 @@ export function NoteContent({
             const pubkey = decoded.data;
             parts.push(
               <NostrMention key={`mention-${keyCounter++}`} pubkey={pubkey} />
+            );
+          } else if (decoded.type === 'nprofile') {
+            const profileData = decoded.data;
+            parts.push(
+              <NostrMention key={`mention-${keyCounter++}`} pubkey={profileData.pubkey} />
+            );
+          } else if (decoded.type === 'note') {
+            const eventId = decoded.data;
+            parts.push(
+              <Link 
+                key={`nostr-${keyCounter++}`}
+                to={`/${nostrId}`}
+                className="text-blue-500 hover:underline font-mono text-xs bg-muted px-1 rounded"
+                title={`Note ${eventId.slice(0, 8)}...`}
+              >
+                @{eventId.slice(0, 8)}...
+              </Link>
+            );
+          } else if (decoded.type === 'nevent') {
+            const eventData = decoded.data;
+            parts.push(
+              <Link 
+                key={`nostr-${keyCounter++}`}
+                to={`/${nostrId}`}
+                className="text-blue-500 hover:underline font-mono text-xs bg-muted px-1 rounded"
+                title={`Event ${eventData.id.slice(0, 8)}...`}
+              >
+                @{eventData.id.slice(0, 8)}...
+              </Link>
+            );
+          } else if (decoded.type === 'naddr') {
+            const addrData = decoded.data;
+            const shortIdentifier = addrData.identifier.length > 8 
+              ? `${addrData.identifier.slice(0, 8)}...` 
+              : addrData.identifier || 'addr';
+            parts.push(
+              <Link 
+                key={`nostr-${keyCounter++}`}
+                to={`/${nostrId}`}
+                className="text-purple-500 hover:underline font-mono text-xs bg-muted px-1 rounded"
+                title={`Addressable event: ${addrData.identifier}`}
+              >
+                @{shortIdentifier}
+              </Link>
             );
           } else {
             // For other types, just show as a link

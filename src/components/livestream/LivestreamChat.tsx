@@ -67,7 +67,7 @@ function ChatMessage({ message, isPeachy, isStreamUpdate, isNew }: ChatMessagePr
             )}
             <span className="text-xs text-muted-foreground ml-auto">{time}</span>
           </div>
-          <p className="text-sm mt-1 break-words whitespace-pre-wrap hyphens-auto">
+          <p className="text-sm mt-1 break-words overflow-wrap-anywhere whitespace-pre-wrap">
             {message.content}
           </p>
         </div>
