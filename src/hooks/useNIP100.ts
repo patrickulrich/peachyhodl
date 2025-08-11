@@ -105,26 +105,20 @@ export function useNIP100() {
   }, [user, publishEvent]);
 
   // Publish disconnect event
-  const publishDisconnect = useCallback(async (roomId?: string, targetPubkeys?: string[]) => {
+  const publishDisconnect = useCallback(async (roomId?: string, _targetPubkeys?: string[]) => {
     if (!user) throw new Error('User not authenticated');
 
     const tags = [['type', 'disconnect']];
     
-    if (roomId && targetPubkeys) {
-      // Group room
-      for (const pubkey of targetPubkeys) {
-        tags.push(['p', pubkey]);
-        const encryptedRoomId = await encryptRoomId(roomId, pubkey);
-        tags.push(['r', encryptedRoomId]);
-      }
-    } else if (targetPubkeys?.length === 1) {
-      // One-on-one call
-      tags.push(['p', targetPubkeys[0]]);
+    // NRTC pattern: Disconnect events are public broadcasts like connect events
+    // This lets everyone in the room know someone left
+    if (roomId) {
+      tags.push(['r', roomId]);
     }
 
     await publishEvent({
       kind: 25050,
-      content: '',
+      content: `Leaving room: ${roomId || 'unknown'}`,
       tags,
     });
 
@@ -135,7 +129,7 @@ export function useNIP100() {
         return newSet;
       });
     }
-  }, [user, publishEvent, encryptRoomId]);
+  }, [user, publishEvent]);
 
   // Publish WebRTC offer
   const publishOffer = useCallback(async (
@@ -345,20 +339,10 @@ export function useNIP100() {
     setIsListening(true);
 
     try {
-      // NRTC Pattern: Create real-time subscription similar to relay.sub()
-      // Query initial events first
-      const recentEvents = await nostr.query([
-        {
-          kinds: [25050],
-          '#p': [user.pubkey],
-          since: Math.floor(Date.now() / 1000) - 60, // Last minute
-        },
-        {
-          kinds: [25050],
-          '#r': [PEACHY_AUDIO_ROOM.id],
-          since: Math.floor(Date.now() / 1000) - 60, // Last minute
-        }
-      ]);
+      // NRTC Pattern: Start fresh - don't look for past events
+      // This prevents trying to connect to users who may have already left
+      // We'll announce our presence and existing users will connect to us
+      const recentEvents: NostrEvent[] = [];
 
       const handleEvent = async (event: NostrEvent) => {
         try {
@@ -508,41 +492,52 @@ export function useNIP100() {
       // Process initial events
       recentEvents.forEach(handleEvent);
       
-      // Set up frequent polling (like NRTC pattern but faster)
-      // Use 1-second polling for better real-time behavior
-      let lastEventTime = Math.floor(Date.now() / 1000);
+      // NRTC Pattern: Real-time subscriptions instead of polling
+      // This matches NRTC's relay.sub() pattern for immediate event delivery
+      const abortController = new AbortController();
       
-      const pollInterval = setInterval(async () => {
+      const filters = [
+        {
+          kinds: [25050],
+          '#p': [user.pubkey], // Direct messages (offers/answers/candidates)
+        },
+        {
+          kinds: [25050], 
+          '#r': [PEACHY_AUDIO_ROOM.id], // Room messages (connect/disconnect)
+        }
+      ];
+
+      // Start real-time subscription
+      const startSubscription = async () => {
         try {
-          const [directedEvents, roomEvents] = await Promise.all([
-            nostr.query([
-              {
-                kinds: [25050],
-                '#p': [user.pubkey],
-                since: lastEventTime,
-              }
-            ]),
-            nostr.query([
-              {
-                kinds: [25050],
-                '#r': [PEACHY_AUDIO_ROOM.id],
-                since: lastEventTime,
-              }
-            ])
-          ]);
+          const eventStream = nostr.req(filters, { signal: abortController.signal });
           
-          const newEvents = [...directedEvents, ...roomEvents];
-          if (newEvents.length > 0) {
-            // Update last event time to newest event
-            lastEventTime = Math.max(...newEvents.map(e => e.created_at));
-            newEvents.forEach(handleEvent);
+          for await (const msg of eventStream) {
+            if (msg[0] === 'EVENT') {
+              const event = msg[2];
+              await handleEvent(event);
+            } else if (msg[0] === 'EOSE') {
+              console.log('WebRTC signaling: Now streaming live events');
+            } else if (msg[0] === 'CLOSED') {
+              console.log('WebRTC signaling subscription closed');
+              break;
+            }
           }
         } catch (error) {
-          console.error('Failed to poll for new events:', error);
+          if (error.name !== 'AbortError') {
+            console.error('WebRTC signaling subscription error:', error);
+          }
         }
-      }, 1000); // Poll every second for better responsiveness
+      };
+
+      // Start subscription in background
+      startSubscription();
       
-      subscriptionRef.current = { close: () => clearInterval(pollInterval) };
+      subscriptionRef.current = { 
+        close: () => {
+          abortController.abort();
+        } 
+      };
 
     } catch (error) {
       console.error('Failed to start WebRTC signaling listener:', error);

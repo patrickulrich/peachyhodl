@@ -18,6 +18,17 @@ const peers: Record<string, RTCPeerConnection> = {};
 let remoteAudioElement: HTMLAudioElement | null = null;
 let remoteStream: MediaStream | null = null;
 
+// Expose peers globally for debugging and duplicate checking
+declare global {
+  interface Window {
+    peers: Record<string, RTCPeerConnection>;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.peers = peers;
+}
+
 export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
   const { user: _user } = useCurrentUser();
   const { toast } = useToast();
@@ -92,6 +103,16 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
     const pc = peers[id];
     if (!pc) return;
 
+    // Remove tracks from remote stream before closing
+    if (remoteStream) {
+      const senders = pc.getSenders();
+      senders.forEach(sender => {
+        if (sender.track && remoteStream) {
+          remoteStream.removeTrack(sender.track);
+        }
+      });
+    }
+
     pc.close();
     delete peers[id];
     
@@ -104,8 +125,15 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
   // NRTC Pattern: Initialize peer connection and create offer
   const initRTCPeerConnection = useCallback(async (id: string, onIceCandidate?: (candidate: RTCIceCandidate) => void): Promise<RTCSessionDescriptionInit | null> => {
     try {
-      // NRTC Pattern: Always create new connections
-      // Let WebRTC handle duplicates at the protocol level
+      // NRTC Pattern: Always create new connections and overwrite existing ones
+      // This handles the race condition where both users see each other's "connect" events
+      if (peers[id]) {
+        console.log(`Overwriting existing connection for ${id}`);
+        peers[id].close();
+        delete peers[id];
+      }
+      
+      // NRTC Pattern: Create new connection
       const pc = new RTCPeerConnection(config);
 
       addLocalStream(pc);
@@ -117,6 +145,10 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
           onIceCandidate(event.candidate);
         }
       };
+
+      // NRTC Pattern: NO ICE handler in initRTCPeerConnection
+      // ICE handlers are ONLY set in onRTCAnswer and onRTCoffer
+      // This is intentional in NRTC - connection initiator doesn't handle disconnects
 
       // Add peer connection to peers list (NRTC pattern)
       peers[id] = pc;
@@ -154,11 +186,10 @@ export function useWebRTC(config: WebRTCConfig = DEFAULT_CONFIG) {
 
       if (!offer) return null;
 
-      // NRTC Pattern: Always create new connection for offers
-      // This ensures we respond even if there's an existing connection
-      // The WebRTC layer will handle renegotiation
+      // NRTC Pattern: Always accept offers and overwrite existing connections
+      // This prevents race conditions when both users try to initiate simultaneously
       if (peers[id]) {
-        console.log(`Replacing existing connection for ${id}`);
+        console.log(`Replacing existing connection for ${id} with new offer`);
         peers[id].close();
         delete peers[id];
       }

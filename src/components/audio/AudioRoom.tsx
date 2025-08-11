@@ -49,6 +49,7 @@ export function AudioRoom() {
     onRTCOffer,
     onRTCAnswer,
     onRTCIceCandidate,
+    removeRTCPeerConnection,
     toggleAudio,
     toggleVideo,
     disconnectAll,
@@ -127,9 +128,7 @@ export function AudioRoom() {
     try {
       // Publish disconnect event
       if (isJoined) {
-        const currentRoom = availableRooms.get(roomId);
-        const participants = currentRoom?.participants || [];
-        await publishDisconnect(roomId, participants);
+        await publishDisconnect(roomId);
       }
       
       // Clean up connections
@@ -145,23 +144,22 @@ export function AudioRoom() {
     } catch (error) {
       console.error('Failed to leave room:', error);
     }
-  }, [isJoined, roomId, roomName, publishDisconnect, disconnectAll, cleanup, availableRooms, toast]);
+  }, [isJoined, roomId, roomName, publishDisconnect, disconnectAll, cleanup, toast]);
 
   // Set up WebRTC signaling event handlers
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isJoined) return;
 
     const handleConnect = async (event: WebRTCSignalingEvent) => {
-      // NRTC Pattern: Simple approach - always try to connect to new users
-      // Skip only our own events
+      // NRTC Pattern: ALWAYS respond to connect events by initiating connection
+      // No complex timing logic - just "last connection wins" through overwrites
+      // This creates mutual connections between all participants
+      
       if (event.roomId === roomId && event.pubkey !== user.pubkey) {
-        // Someone else joined the room - initiate connection TO them
-        // This follows NRTC's simple pattern: everyone connects to everyone
         try {
-          console.log(`New participant joined: ${event.pubkey.substring(0, 8)}... - initiating connection`);
+          console.log(`Participant ${event.pubkey.substring(0, 8)}... connected - initiating peer connection`);
           
-          // Create offer and initiate connection
-          // The WebRTC layer will handle duplicate connections
+          // NRTC pattern: Always create connection (overwrites existing if present)
           const offer = await initRTCPeerConnection(event.pubkey, (candidate: RTCIceCandidate) => {
             publishIceCandidate(candidate, event.pubkey, roomId);
           });
@@ -170,7 +168,7 @@ export function AudioRoom() {
             console.log(`Sent offer to ${event.pubkey.substring(0, 8)}...`);
           }
         } catch (error) {
-          console.error('Failed to create offer for new participant:', error);
+          console.error('Failed to create offer for participant:', error);
         }
       }
     };
@@ -235,14 +233,24 @@ export function AudioRoom() {
       }
     };
 
+    const handleDisconnect = async (event: WebRTCSignalingEvent) => {
+      if (event.roomId === roomId && event.pubkey !== user.pubkey) {
+        console.log(`User ${event.pubkey.substring(0, 8)}... disconnected from room`);
+        // NRTC Pattern: Simple peer cleanup on disconnect
+        removeRTCPeerConnection(event.pubkey);
+      }
+    };
+
     // Register event handlers
     registerEventHandler('connect', handleConnect);
+    registerEventHandler('disconnect', handleDisconnect);
     registerEventHandler('offer', handleOfferEvent);
     registerEventHandler('answer', handleAnswerEvent);
     registerEventHandler('candidate', handleCandidate);
 
     return () => {
       unregisterEventHandler('connect');
+      unregisterEventHandler('disconnect');
       unregisterEventHandler('offer');
       unregisterEventHandler('answer');
       unregisterEventHandler('candidate');
@@ -256,6 +264,7 @@ export function AudioRoom() {
     onRTCOffer,
     onRTCAnswer,
     onRTCIceCandidate,
+    removeRTCPeerConnection,
     publishOffer,
     publishAnswer,
     publishIceCandidate,
@@ -310,14 +319,24 @@ export function AudioRoom() {
     };
   }, [localStream, isJoined]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount and beforeunload (NRTC pattern)
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isJoined) {
+        // Synchronously publish disconnect event
+        publishDisconnect(roomId);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       if (isJoined) {
         leaveRoom();
       }
     };
-  }, [isJoined, leaveRoom]);
+  }, [isJoined, leaveRoom, publishDisconnect, roomId]);
 
   if (!user) {
     return (
