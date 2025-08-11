@@ -4,6 +4,8 @@ import { useNostrPublish } from "./useNostrPublish";
 import { useCurrentUser } from "./useCurrentUser";
 import type { NostrEvent } from "@nostrify/nostrify";
 
+const PEACHY_HEX = '0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820';
+
 export interface ReactionSummary {
   likes: number;
   reactions: Array<{
@@ -12,6 +14,7 @@ export interface ReactionSummary {
     userReacted: boolean;
   }>;
   userLiked: boolean;
+  isModerated: boolean; // True if Peachy reacted with ❌
 }
 
 export function useReactions(eventId: string | null) {
@@ -48,6 +51,7 @@ export function useReactions(eventId: string | null) {
     likes: 0,
     reactions: [],
     userLiked: false,
+    isModerated: false,
   };
 
   if (reactions.length > 0) {
@@ -57,6 +61,12 @@ export function useReactions(eventId: string | null) {
       const content = reaction.content.trim();
       const isLike = content === "+" || content === "";
       const isUserReaction = user?.pubkey === reaction.pubkey;
+      const isPeachyReaction = reaction.pubkey === PEACHY_HEX;
+      
+      // Check if Peachy moderated this message with ❌
+      if (isPeachyReaction && content === "❌") {
+        reactionSummary.isModerated = true;
+      }
       
       if (isLike) {
         reactionSummary.likes++;

@@ -10,6 +10,7 @@ import { useLiveChat } from "@/hooks/useLiveChat";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
+import { useMessageModeration } from "@/hooks/useMessageModeration";
 import { ReactionButton } from "@/components/reactions/ReactionButton";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
@@ -24,6 +25,7 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(message.pubkey);
+  const { isModerated } = useMessageModeration(message.id);
   
   // Parse content for nostr: mentions (similar to NoteContent component)
   const parsedContent = useMemo(() => {
@@ -73,6 +75,11 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
     
     return parts.length > 0 ? parts : content;
   }, [message.content]);
+
+  // Hide moderated messages in LiveChat
+  if (isModerated) {
+    return null;
+  }
 
   return (
     <div className={`flex gap-3 p-3 hover:bg-muted/50 transition-all duration-300 w-full ${

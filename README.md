@@ -29,12 +29,14 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **📅 Event Calendar** - Upcoming and past live events via NIP-53 with status tracking
 - **💬 Advanced Comments System** - Threaded discussions on all content using NIP-22
 - **❤️ Interactive Reactions** - NIP-25 reactions on live chat messages with tap-to-like and long-press emoji selector
+- **🛡️ Chat Moderation** - Peachy can moderate live chat by reacting with ❌ to hide inappropriate messages
 - **🔗 NIP-19 Routing** - Direct access to any Nostr content via npub, note, nevent, naddr URLs
 - **📱 Unified Chat** - Global livestream chat system with real-time messaging and reactions
 
 ### **Admin Features** 
 - **Content Management** - Special admin controls when Peachy is signed in
 - **Music List Management** - Create, manage, and update Wavlake music playlists with NIP-51
+- **Chat Moderation** - One-click message moderation using ❌ reactions to hide inappropriate content in LiveChat
 - **Audio Room Moderation** - Voice chat moderation with kick/ban functionality and moderator permissions
 - **Track Suggestion Notifications** - Dedicated notification system for track suggestions from users
 - **Profile Management** - Complete profile editing with NIP-05 verification support
@@ -287,6 +289,7 @@ src/
 │   ├── useTrackSuggestionNotifications.ts # NIP-17 private messages
 │   ├── useNotificationReadStatus.ts # NIP-78 app data
 │   ├── useReactions.ts          # NIP-25 reactions (likes and emojis)
+│   ├── useMessageModeration.ts  # Chat moderation via ❌ reactions
 │   ├── useUploadFile.ts         # File uploads (NIP-96)
 │   └── ...                      # 10+ additional specialized hooks
 ├── pages/                        # Page components (19+ pages)
