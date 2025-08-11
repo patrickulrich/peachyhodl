@@ -162,6 +162,14 @@ export async function createEventSubSubscription(
     const result = await response.json();
     console.log('EventSub subscription created successfully:', result);
     
+    // Check subscription limits
+    if (result.total_cost && result.max_total_cost) {
+      console.log(`Subscription cost: ${result.total_cost}/${result.max_total_cost}`);
+      if (result.total_cost >= result.max_total_cost * 0.8) {
+        console.warn('⚠️ Approaching subscription cost limit!');
+      }
+    }
+    
     return true;
   } catch (error) {
     console.error('Error creating EventSub subscription:', error);

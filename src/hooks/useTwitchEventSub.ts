@@ -29,13 +29,13 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const oldWsRef = useRef<WebSocket | null>(null); // For reconnect flow
   const keepaliveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 10;
+  const isReconnectingRef = useRef(false);
+  const manualDisconnectRef = useRef(false);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (reconnectUrl?: string) => {
     const token = parseTwitchToken();
     
     if (!token) {
@@ -45,16 +45,27 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
     }
 
     setIsAuthenticated(true);
-    setError(null);
-
-    // Disconnect existing connection
-    if (wsRef.current) {
-      wsRef.current.close();
+    manualDisconnectRef.current = false;
+    
+    // Don't close existing connection if this is a reconnect
+    if (!reconnectUrl && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log('Already connected, skipping new connection');
+      return;
     }
 
     try {
-      // Connect to EventSub WebSocket
-      const ws = new WebSocket('wss://eventsub.wss.twitch.tv/ws');
+      // Use reconnect URL if provided, otherwise connect to main endpoint
+      const url = reconnectUrl || 'wss://eventsub.wss.twitch.tv/ws?keepalive_timeout_seconds=30';
+      console.log('Connecting to EventSub:', reconnectUrl ? 'reconnect URL' : 'main endpoint');
+      
+      const ws = new WebSocket(url);
+      
+      // If this is a reconnect, keep old connection as reference
+      if (reconnectUrl && wsRef.current) {
+        oldWsRef.current = wsRef.current;
+        isReconnectingRef.current = true;
+      }
+      
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -74,45 +85,59 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
               setError('Invalid session welcome payload');
               break;
             }
+            
             const sessionId = eventSubMessage.payload.session.id;
+            const keepaliveTimeout = eventSubMessage.payload.session.keepalive_timeout_seconds || 10;
+            
             sessionIdRef.current = sessionId;
             storeTwitchSession(sessionId);
             setIsConnected(true);
             setError(null);
-            reconnectAttemptsRef.current = 0; // Reset reconnect attempts on successful connection
+            
+            // If this was a reconnect, close the old connection now
+            if (isReconnectingRef.current && oldWsRef.current) {
+              console.log('Closing old connection after successful reconnect');
+              oldWsRef.current.close(1000, 'Reconnect successful');
+              oldWsRef.current = null;
+              isReconnectingRef.current = false;
+            }
 
-            // Set up keepalive timeout - use server-provided timeout + buffer
-            const keepaliveTimeout = eventSubMessage.payload.session.keepalive_timeout_seconds || 10;
+            // Reset keepalive timer
             if (keepaliveTimeoutRef.current) {
               clearTimeout(keepaliveTimeoutRef.current);
             }
-            // Use server timeout + small buffer to detect dead connections quickly
+            
+            // Set timeout for keepalive - if we don't get a keepalive or notification
+            // within this time, assume connection is dead
             keepaliveTimeoutRef.current = setTimeout(() => {
-              console.warn('Keepalive timeout exceeded, reconnecting immediately...');
+              console.warn('No keepalive received, connection may be dead');
               setError('Connection lost - reconnecting...');
-              ws.close(); // This will trigger immediate reconnect in onclose
-            }, (keepaliveTimeout + 3) * 1000); // Only 3 second buffer for faster detection
+              // Close and reconnect
+              manualDisconnectRef.current = false;
+              ws.close();
+            }, (keepaliveTimeout + 5) * 1000); // Add 5 second buffer
 
-            // Create subscriptions after successful connection
-            await createEventSubSubscriptions(token, sessionId);
+            // Only create subscriptions if this is not a reconnect
+            // (reconnect maintains existing subscriptions)
+            if (!reconnectUrl) {
+              // We have 10 seconds to create subscriptions
+              await createEventSubSubscriptions(token, sessionId);
+            }
             break;
           }
 
           case 'session_keepalive':
             console.log('EventSub keepalive received');
-            // Clear any existing error when we receive a keepalive
-            if (error === 'Connection lost - reconnecting...') {
-              setError(null);
-            }
-            // Reset keepalive timeout - expecting another within ~10 seconds
+            // Reset the keepalive timeout
             if (keepaliveTimeoutRef.current) {
               clearTimeout(keepaliveTimeoutRef.current);
-              // Twitch sends keepalives every ~10 seconds, set timeout for 13 seconds
+              const keepaliveTimeout = 10; // Default, since keepalive doesn't include timeout
               keepaliveTimeoutRef.current = setTimeout(() => {
-                console.warn('Keepalive timeout exceeded, reconnecting immediately...');
+                console.warn('No keepalive received, connection may be dead');
                 setError('Connection lost - reconnecting...');
-                ws.close(); // Triggers immediate reconnect
-              }, 13000); // 13 seconds - should get one every 10
+                manualDisconnectRef.current = false;
+                ws.close();
+              }, (keepaliveTimeout + 5) * 1000);
             }
             break;
 
@@ -121,6 +146,19 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
               type: eventSubMessage.metadata.subscription_type,
               event: eventSubMessage.payload.event
             });
+            
+            // Notifications reset the keepalive timer per docs
+            if (keepaliveTimeoutRef.current) {
+              clearTimeout(keepaliveTimeoutRef.current);
+              const keepaliveTimeout = 10; // Default timeout
+              keepaliveTimeoutRef.current = setTimeout(() => {
+                console.warn('No keepalive received, connection may be dead');
+                setError('Connection lost - reconnecting...');
+                manualDisconnectRef.current = false;
+                ws.close();
+              }, (keepaliveTimeout + 5) * 1000);
+            }
+            
             const twitchMessage = convertEventSubToTwitchMessage(eventSubMessage);
             console.log('Converted to TwitchMessage:', twitchMessage);
             if (twitchMessage) {
@@ -139,18 +177,17 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
 
           case 'session_reconnect': {
             console.log('EventSub session reconnect requested');
-            if (!eventSubMessage.payload.session) {
+            if (!eventSubMessage.payload.session?.reconnect_url) {
               setError('Invalid session reconnect payload');
               break;
             }
-            const reconnectUrl = eventSubMessage.payload.session.reconnect_url;
-            if (reconnectUrl) {
-              // Close current connection and connect to new URL
-              ws.close();
-              const newWs = new WebSocket(reconnectUrl);
-              wsRef.current = newWs;
-              // The new connection will trigger onopen and session_welcome
-            }
+            
+            const newReconnectUrl = eventSubMessage.payload.session.reconnect_url;
+            console.log('Reconnecting to new URL as requested by Twitch');
+            
+            // Per docs: immediately connect to new URL but DON'T close old connection yet
+            // Old connection will continue receiving events until new one is established
+            connect(newReconnectUrl);
             break;
           }
 
@@ -172,37 +209,78 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
       };
 
       ws.onclose = (event) => {
-        console.log('Disconnected from EventSub WebSocket:', event.code, event.reason);
-        setIsConnected(false);
-        wsRef.current = null;
-        sessionIdRef.current = null;
-
+        console.log('WebSocket closed:', event.code, event.reason);
+        
         // Clear keepalive timeout
         if (keepaliveTimeoutRef.current) {
           clearTimeout(keepaliveTimeoutRef.current);
           keepaliveTimeoutRef.current = null;
         }
 
-        // Immediate reconnect if we were authenticated and it wasn't a manual close
-        if (isAuthenticated && event.code !== 1000 && !reconnectTimeoutRef.current) {
-          reconnectAttemptsRef.current++;
-          
-          if (reconnectAttemptsRef.current > maxReconnectAttempts) {
-            setError('Failed to reconnect after multiple attempts. Please refresh the page.');
-            return;
-          }
-          
-          // Calculate delay with exponential backoff, but cap at 5 seconds
-          const delay = Math.min(100 * Math.pow(2, reconnectAttemptsRef.current - 1), 5000);
-          
-          console.log(`Attempting reconnection (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${delay}ms...`);
-          setError(`Connection lost - reconnecting (attempt ${reconnectAttemptsRef.current})...`);
-          
-          // Reconnect with exponential backoff
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectTimeoutRef.current = null;
+        // Don't update state if this is the old connection during reconnect
+        if (oldWsRef.current === ws) {
+          console.log('Old connection closed during reconnect, ignoring');
+          return;
+        }
+
+        setIsConnected(false);
+        wsRef.current = null;
+        sessionIdRef.current = null;
+
+        // Handle different close codes per Twitch docs
+        let shouldReconnect = false;
+        let errorMessage = '';
+        
+        switch (event.code) {
+          case 1000: // Normal closure
+            if (!manualDisconnectRef.current) {
+              shouldReconnect = true;
+              errorMessage = 'Connection closed unexpectedly';
+            }
+            break;
+          case 4000: // Internal server error
+            shouldReconnect = true;
+            errorMessage = 'Twitch server error - reconnecting...';
+            break;
+          case 4001: // Client sent inbound traffic
+            errorMessage = 'Connection closed: Invalid client message sent';
+            break;
+          case 4002: // Client failed ping-pong
+            shouldReconnect = true;
+            errorMessage = 'Connection lost: Ping timeout';
+            break;
+          case 4003: // Connection unused (didn't subscribe within 10 seconds)
+            shouldReconnect = true;
+            errorMessage = 'Connection closed: No subscriptions created';
+            break;
+          case 4004: // Reconnect grace time expired
+            shouldReconnect = true;
+            errorMessage = 'Reconnect timeout - establishing new connection';
+            break;
+          case 4005: // Network timeout
+          case 4006: // Network error
+            shouldReconnect = true;
+            errorMessage = 'Network error - reconnecting...';
+            break;
+          case 4007: // Invalid reconnect
+            shouldReconnect = true;
+            errorMessage = 'Invalid reconnect URL - establishing new connection';
+            break;
+          default:
+            shouldReconnect = true;
+            errorMessage = `Connection lost (code: ${event.code})`;
+        }
+
+        if (errorMessage) {
+          setError(errorMessage);
+        }
+
+        // Reconnect if needed and authenticated
+        if (shouldReconnect && isAuthenticated && !manualDisconnectRef.current) {
+          console.log('Reconnecting in 1 second...');
+          setTimeout(() => {
             connect();
-          }, delay);
+          }, 1000);
         }
       };
 
@@ -210,7 +288,7 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
       console.error('Failed to connect to EventSub:', error);
       setError('Failed to connect to EventSub');
     }
-  }, [isAuthenticated, error]);
+  }, [isAuthenticated]);
 
   const createEventSubSubscriptions = async (accessToken: string, sessionId: string) => {
     const broadcasterId = await getBroadcasterUserId(accessToken);
@@ -336,11 +414,8 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
   };
 
   const disconnect = useCallback(() => {
-    // Clear reconnect timeout
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
+    console.log('Manual disconnect requested');
+    manualDisconnectRef.current = true;
 
     // Clear keepalive timeout
     if (keepaliveTimeoutRef.current) {
@@ -348,14 +423,19 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
       keepaliveTimeoutRef.current = null;
     }
 
-    // Close WebSocket
-    if (wsRef.current) {
+    // Close all connections
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.close(1000, 'Manual disconnect');
-      wsRef.current = null;
     }
-
+    if (oldWsRef.current && oldWsRef.current.readyState === WebSocket.OPEN) {
+      oldWsRef.current.close(1000, 'Manual disconnect');
+    }
+    
+    wsRef.current = null;
+    oldWsRef.current = null;
     sessionIdRef.current = null;
     setIsConnected(false);
+    isReconnectingRef.current = false;
   }, []);
 
   const clearAuth = useCallback(() => {
