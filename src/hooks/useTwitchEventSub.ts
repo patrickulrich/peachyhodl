@@ -217,8 +217,8 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
         console.log('Target broadcaster (peachyhodl) ID:', broadcasterId);
         
         if (authenticatedUser?.login?.toLowerCase() !== 'peachyhodl') {
-          console.warn('⚠️  You are not authenticated as peachyhodl! Some EventSub subscriptions will fail.');
-          setError(`Authenticated as ${authenticatedUser?.login || 'unknown'}, but need to be peachyhodl for all events`);
+          console.warn('⚠️  You are not authenticated as peachyhodl! Most EventSub subscriptions will fail.');
+          setError(`⚠️ Authentication Issue: You're logged in as "${authenticatedUser?.login || 'unknown'}" but need to be logged in as "peachyhodl" (the broadcaster) for most Twitch events to work. Only raids and your own chat messages will be received. Please log out and log in as peachyhodl to receive follows, bits, subscriptions, and all chat messages.`);
         }
       }
     } catch (error) {
@@ -275,12 +275,13 @@ export function useTwitchEventSub(): UseTwitchEventSubReturn {
           to_broadcaster_user_id: broadcasterId
         }
       },
-      // Chat messages
+      // Chat messages (requires user_id - listen to authenticated user's messages in broadcaster's channel)  
       {
         type: 'channel.chat.message',
         version: '1',
         condition: {
-          broadcaster_user_id: broadcasterId
+          broadcaster_user_id: broadcasterId,
+          user_id: authenticatedUser?.id || broadcasterId
         }
       }
     ];
