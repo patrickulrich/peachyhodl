@@ -12,6 +12,7 @@ import WavlakeArtist from "./pages/WavlakeArtist";
 import WavlakeAlbum from "./pages/WavlakeAlbum";
 import WavlakeTrack from "./pages/WavlakeTrack";
 import WavlakeExplore from "./pages/WavlakeExplore";
+import WavlakeRadio from "./pages/WavlakeRadio";
 import WeeklySongsLeaderboard from "./pages/WeeklySongsLeaderboard";
 import PartyView from "./pages/PartyView";
 import { NotificationsPage } from "./pages/NotificationsPage";
@@ -37,6 +38,7 @@ export function AppRouter() {
         <Route path="/wavlake-pics" element={<WavlakePicks />} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/explore-wavlake" element={<WavlakeExplore />} />
+        <Route path="/explore-wavlake/radio" element={<WavlakeRadio />} />
         <Route path="/weekly-songs-leaderboard" element={<WeeklySongsLeaderboard />} />
         <Route path="/party-view" element={<PartyView />} />
         <Route path="/notifications" element={<NotificationsPage />} />

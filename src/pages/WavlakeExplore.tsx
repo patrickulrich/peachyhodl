@@ -26,7 +26,8 @@ import {
   Plus,
   Play,
   MessageCircle,
-  Heart
+  Heart,
+  Radio
 } from 'lucide-react';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import type { WavlakeTrack } from '@/lib/wavlake';
@@ -345,10 +346,18 @@ export default function WavlakeExplore() {
     <MainLayout>
       <div className={`container mx-auto px-4 py-8 ${currentTrack ? 'pb-48 sm:pb-8' : ''}`}>
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4 flex items-center gap-3">
-            <Music className="h-10 w-10 text-primary" />
-            Explore Wavlake
-          </h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-4xl font-bold flex items-center gap-3">
+              <Music className="h-10 w-10 text-primary" />
+              Explore Wavlake
+            </h1>
+            <Button asChild variant="outline" size="lg">
+              <Link to="/explore-wavlake/radio" className="flex items-center gap-2">
+                <Radio className="h-5 w-5" />
+                Radio
+              </Link>
+            </Button>
+          </div>
           <p className="text-lg text-muted-foreground">
             Discover trending Bitcoin music, explore artists, and find your next favorite track.
           </p>
