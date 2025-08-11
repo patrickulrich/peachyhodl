@@ -127,36 +127,36 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
   return (
     <div 
       className={cn(
-        "p-4 rounded-lg border transition-all duration-300",
+        "p-4 rounded-lg border transition-all duration-300 w-full",
         isPeachy && "bg-gradient-to-r from-pink-500/10 to-pink-400/5 border-pink-500/30",
         !isPeachy && "bg-card hover:bg-accent/5",
         isNew && "animate-in slide-in-from-bottom-2"
       )}
     >
       <div className="flex items-start gap-3">
-        <Avatar className={cn("h-8 w-8", isPeachy && "ring-2 ring-pink-500")}>
+        <Avatar className={cn("h-8 w-8 flex-shrink-0", isPeachy && "ring-2 ring-pink-500")}>
           <AvatarImage src={metadata?.picture} alt={displayName} />
           <AvatarFallback>
             {isPeachy ? "🍑" : displayName[0].toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn("font-semibold text-sm", isPeachy && "text-pink-500")}>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className={cn("font-semibold text-sm truncate", isPeachy && "text-pink-500")}>
               {displayName}
             </span>
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs flex-shrink-0">
               <Zap className="h-3 w-3 mr-1" />
               Nostr
             </Badge>
             {isPeachy && (
-              <Badge variant="default" className="bg-gradient-to-r from-pink-500 to-pink-600 text-white border-0">
+              <Badge variant="default" className="bg-gradient-to-r from-pink-500 to-pink-600 text-white border-0 flex-shrink-0">
                 HOST
               </Badge>
             )}
-            <span className="text-xs text-muted-foreground ml-auto">{time}</span>
+            <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">{time}</span>
           </div>
-          <div className="text-sm mt-1">
+          <div className="text-sm" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
             <NoteContent event={message} className="break-words overflow-wrap-anywhere" />
           </div>
         </div>
@@ -219,7 +219,7 @@ function TwitchChatMessage({ message, isNew }: TwitchChatMessageProps) {
   return (
     <div 
       className={cn(
-        "p-4 rounded-lg border transition-all duration-300",
+        "p-4 rounded-lg border transition-all duration-300 w-full",
         isSpecialEvent && `bg-gradient-to-r ${getEventColor()} shadow-lg`,
         isPeachy && !isSpecialEvent && "bg-gradient-to-r from-purple-500/10 to-purple-400/5 border-purple-500/30",
         !isPeachy && !isSpecialEvent && "bg-card hover:bg-accent/5",
@@ -228,12 +228,12 @@ function TwitchChatMessage({ message, isNew }: TwitchChatMessageProps) {
     >
       <div className="flex items-start gap-3">
         {isSpecialEvent ? (
-          <div className="h-10 w-10 rounded-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg">
+          <div className="h-10 w-10 rounded-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg flex-shrink-0">
             {getEventIcon()}
           </div>
         ) : (
           <div className={cn(
-            "h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm",
+            "h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0",
             isPeachy ? "bg-purple-500" : "bg-purple-600"
           )}
           style={{ backgroundColor: message.color || undefined }}>
@@ -241,9 +241,9 @@ function TwitchChatMessage({ message, isNew }: TwitchChatMessageProps) {
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
             <span 
-              className={cn("font-semibold text-sm", isPeachy && "text-purple-500")}
+              className={cn("font-semibold text-sm truncate", isPeachy && "text-purple-500")}
               style={{ color: isSpecialEvent ? undefined : message.color || undefined }}
             >
               {message.displayName}
@@ -251,41 +251,41 @@ function TwitchChatMessage({ message, isNew }: TwitchChatMessageProps) {
             
             {/* Event-specific badges */}
             {message.messageType === 'subscription' && (
-              <Badge className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-0">
+              <Badge className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-0 flex-shrink-0">
                 <Crown className="h-3 w-3 mr-1" />
                 {message.isResub ? `RESUB x${message.subMonths}` : 'NEW SUB'} {getSubTierLabel(message.subTier)}
               </Badge>
             )}
             
             {message.messageType === 'giftsub' && (
-              <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
+              <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 flex-shrink-0">
                 <Gift className="h-3 w-3 mr-1" />
                 GIFTED {message.giftTotal && message.giftTotal > 1 ? `${message.giftTotal} SUBS` : 'SUB'}
               </Badge>
             )}
             
             {message.messageType === 'bits' && (
-              <Badge className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
+              <Badge className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0 flex-shrink-0">
                 <Sparkles className="h-3 w-3 mr-1" />
                 {message.bits} BITS
               </Badge>
             )}
             
             {message.messageType === 'raid' && (
-              <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">
+              <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 flex-shrink-0">
                 <Users className="h-3 w-3 mr-1" />
                 RAID {message.raidViewers} viewers
               </Badge>
             )}
             
             {message.messageType === 'announcement' && (
-              <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white border-0">
+              <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white border-0 flex-shrink-0">
                 ANNOUNCEMENT
               </Badge>
             )}
             
             {message.messageType === 'follow' && (
-              <Badge className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white border-0">
+              <Badge className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white border-0 flex-shrink-0">
                 <UserPlus className="h-3 w-3 mr-1" />
                 NEW FOLLOWER
               </Badge>
@@ -294,48 +294,51 @@ function TwitchChatMessage({ message, isNew }: TwitchChatMessageProps) {
             {/* Regular badges */}
             {!isSpecialEvent && (
               <>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs flex-shrink-0">
                   <Twitch className="h-3 w-3 mr-1" />
                   Twitch
                 </Badge>
                 {message.isBroadcaster && (
-                  <Badge variant="default" className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0">
+                  <Badge variant="default" className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 flex-shrink-0">
                     BROADCASTER
                   </Badge>
                 )}
                 {message.isMod && !message.isBroadcaster && (
-                  <Badge variant="secondary">MOD</Badge>
+                  <Badge variant="secondary" className="flex-shrink-0">MOD</Badge>
                 )}
                 {message.isVip && (
-                  <Badge variant="secondary">VIP</Badge>
+                  <Badge variant="secondary" className="flex-shrink-0">VIP</Badge>
                 )}
                 {message.isSubscriber && !message.messageType && (
-                  <Badge variant="secondary">SUB</Badge>
+                  <Badge variant="secondary" className="flex-shrink-0">SUB</Badge>
                 )}
               </>
             )}
             
-            <span className="text-xs text-muted-foreground ml-auto">{time}</span>
+            <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">{time}</span>
           </div>
           
           {/* Message content with special formatting for events */}
-          <div className="mt-1">
+          <div>
             {message.messageType === 'giftsub' && message.giftRecipient && (
-              <p className="text-sm font-medium mb-1">
+              <p className="text-sm font-medium mb-1 break-words">
                 → Gifted to <span className="text-purple-500">{message.giftRecipient}</span>
               </p>
             )}
             
             {message.messageType === 'raid' && message.raidFromChannel && (
-              <p className="text-sm font-medium mb-1">
+              <p className="text-sm font-medium mb-1 break-words">
                 From <span className="text-purple-500">{message.raidFromChannel}</span>
               </p>
             )}
             
-            <div className={cn(
-              "text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap",
-              isSpecialEvent && "font-medium"
-            )}>
+            <div 
+              className={cn(
+                "text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap",
+                isSpecialEvent && "font-medium"
+              )}
+              style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+            >
               <TwitchMessageContent content={message.message} />
             </div>
           </div>
@@ -364,32 +367,35 @@ function ZapNotificationMessage({ satoshis, zapType, senderPubkey, message, isNe
   return (
     <div 
       className={cn(
-        "p-4 rounded-lg border transition-all duration-300 bg-gradient-to-r from-yellow-500/20 to-orange-500/10 border-yellow-500/40 shadow-lg",
+        "p-4 rounded-lg border transition-all duration-300 bg-gradient-to-r from-yellow-500/20 to-orange-500/10 border-yellow-500/40 shadow-lg w-full",
         isNew && "animate-in slide-in-from-bottom-2"
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-full flex items-center justify-center bg-gradient-to-br from-yellow-500 to-orange-500 text-white shadow-lg">
+        <div className="h-10 w-10 rounded-full flex items-center justify-center bg-gradient-to-br from-yellow-500 to-orange-500 text-white shadow-lg flex-shrink-0">
           <Zap className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm text-yellow-600">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="font-semibold text-sm text-yellow-600 truncate">
               {displayName}
             </span>
-            <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">
+            <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0 flex-shrink-0">
               {zapIcon} {zapLabel}
             </Badge>
-            <Badge variant="outline" className="text-xs font-bold text-yellow-600 border-yellow-500">
+            <Badge variant="outline" className="text-xs font-bold text-yellow-600 border-yellow-500 flex-shrink-0">
               ⚡ {satoshis.toLocaleString()} sats
             </Badge>
           </div>
-          <div className="mt-1">
-            <p className="text-sm font-medium">
+          <div>
+            <p className="text-sm font-medium break-words">
               Zapped ⚡ {satoshis.toLocaleString()} sats to {zapType === 'profile' ? "Peachy's profile" : "this stream"}!
             </p>
             {message && (
-              <div className="text-sm mt-1 break-words overflow-wrap-anywhere whitespace-pre-wrap italic text-yellow-700">
+              <div 
+                className="text-sm mt-1 break-words overflow-wrap-anywhere whitespace-pre-wrap italic text-yellow-700"
+                style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+              >
                 "{message}"
               </div>
             )}
@@ -689,9 +695,9 @@ export function UnifiedLivestreamChat() {
               <p className="text-sm text-destructive">{twitchError}</p>
             </div>
           )}
-          <CardContent className="p-0 flex-1 min-h-0">
+          <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
             <ScrollArea className="h-full" ref={scrollAreaRef}>
-              <div className="p-4">
+              <div className="p-4 w-full overflow-hidden">
                 {isNostrLoading ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Loader2 className="h-8 w-8 animate-spin mb-4" />
@@ -718,7 +724,7 @@ export function UnifiedLivestreamChat() {
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 w-full overflow-hidden">
                     {unifiedMessages.map((message) => {
                       if (message.source === 'nostr' && message.nostrEvent) {
                         return (

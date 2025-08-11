@@ -74,21 +74,23 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
   }, [message.content]);
 
   return (
-    <div className={`flex gap-3 p-3 hover:bg-muted/50 transition-all duration-300 ${
+    <div className={`flex gap-3 p-3 hover:bg-muted/50 transition-all duration-300 w-full ${
       isNew ? 'animate-in slide-in-from-bottom-2 bg-primary/5 border-l-2 border-primary' : ''
     }`}>
-      <Avatar className="h-8 w-8">
+      <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarImage src={metadata?.picture} alt={displayName} />
         <AvatarFallback>{displayName[0].toUpperCase()}</AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span className="font-semibold text-sm">{displayName}</span>
-          <span className="text-xs text-muted-foreground">
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="font-semibold text-sm truncate">{displayName}</span>
+          <span className="text-xs text-muted-foreground flex-shrink-0">
             {new Date(message.created_at * 1000).toLocaleTimeString()}
           </span>
         </div>
-        <p className="text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap">{parsedContent}</p>
+        <div className="text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+          {parsedContent}
+        </div>
       </div>
     </div>
   );
@@ -101,7 +103,7 @@ function MentionLink({ pubkey }: { pubkey: string }) {
   const displayName = metadata?.name || genUserName(pubkey);
   
   return (
-    <span className="text-blue-500 font-medium hover:underline cursor-pointer">
+    <span className="text-blue-500 font-medium hover:underline cursor-pointer break-words">
       @{displayName}
     </span>
   );
@@ -311,7 +313,7 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
       <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="text-lg">Live Chat</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+      <CardContent className="flex-1 flex flex-col p-0 min-h-0 overflow-hidden">
         <ScrollArea className="flex-1 px-4 min-h-0" ref={scrollAreaRef}>
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -322,7 +324,7 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
               No messages yet. Be the first to chat!
             </div>
           ) : (
-            <div className="space-y-1 py-2">
+            <div className="space-y-1 py-2 w-full overflow-hidden">
               {messages.map((message) => (
                 <ChatMessage 
                   key={message.id} 
