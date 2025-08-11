@@ -249,3 +249,130 @@ For large group calls, clients MAY implement:
 ## Examples
 
 See the reference implementation in Peachy HODL's audio room system for practical usage examples.
+
+---
+
+Music Events
+============
+
+## NIP-32123: Music Track Events (Wavlake Compatibility)
+
+`draft` `optional` `author:wavlake`
+
+This specification defines music track events that follow the NOM (Nostr Open Media) specification used by Wavlake for publishing music content to Nostr.
+
+### Event Kind
+
+Music track events use kind `32123`.
+
+### Event Structure
+
+Music track events contain JSON data in the content field following the NOM specification:
+
+```json
+{
+  "kind": 32123,
+  "pubkey": "<artist pubkey>",
+  "content": "{\"title\":\"Song Title\",\"creator\":\"Artist Name\",\"duration\":180,\"enclosure\":\"https://example.com/song.mp3\",\"type\":\"audio/mpeg\",\"link\":\"https://wavlake.com/song/123\",\"guid\":\"unique-id\",\"published_at\":\"1640995200\"}",
+  "tags": [
+    ["album", "Album Name"],
+    ["genre", "Rock"],
+    ["image", "https://example.com/album-art.jpg"],
+    ["waveform", "https://example.com/waveform.json"]
+  ]
+}
+```
+
+### Content Field Schema
+
+The content field contains a JSON object with the following NOM specification fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | Yes | Song title |
+| `creator` | string | Yes | Artist name |
+| `duration` | number | No | Duration in seconds |
+| `enclosure` | string | Yes | Direct URL to the audio file |
+| `type` | string | No | MIME type (defaults to "audio/mpeg") |
+| `link` | string | No | URL to the song's page on hosting platform |
+| `guid` | string | No | Unique identifier for the track |
+| `published_at` | string | No | Unix timestamp as string |
+
+### Optional Tags
+
+| Tag | Description | Format |
+|-----|-------------|--------|
+| `album` | Album name | `["album", "Album Name"]` |
+| `genre` | Music genre | `["genre", "Rock"]` |
+| `image` | Album artwork URL | `["image", "https://..."]` |
+| `waveform` | Waveform data URL | `["waveform", "https://..."]` |
+
+### Usage
+
+This kind is used for compatibility with existing Wavlake music content and follows their established NOM specification for music metadata.
+
+---
+
+## NIP-31337: Proposed Music Standard Events
+
+`draft` `optional` `author:peachy`
+
+This specification defines a proposed standardized format for music events on Nostr, designed to be more native to the Nostr ecosystem while maintaining interoperability.
+
+### Event Kind
+
+Proposed standard music events use kind `31337`.
+
+### Event Structure
+
+This kind follows a more Nostr-native approach using tags for metadata:
+
+```json
+{
+  "kind": 31337,
+  "pubkey": "<artist pubkey>",
+  "content": "<optional description or lyrics>",
+  "tags": [
+    ["title", "Song Title"],
+    ["artist", "Artist Name"],
+    ["album", "Album Name"],
+    ["duration", "180"],
+    ["genre", "Rock"],
+    ["url", "https://example.com/song.mp3", "audio/mpeg", "stream"],
+    ["image", "https://example.com/album-art.jpg"],
+    ["published_at", "1640995200"]
+  ]
+}
+```
+
+### Tag Specifications
+
+| Tag | Required | Description | Format |
+|-----|----------|-------------|--------|
+| `title` | Yes | Song title | `["title", "Song Title"]` |
+| `artist` | Yes | Artist name | `["artist", "Artist Name"]` |
+| `album` | No | Album name | `["album", "Album Name"]` |
+| `duration` | No | Duration in seconds | `["duration", "180"]` |
+| `genre` | No | Music genre | `["genre", "Rock"]` |
+| `url` | Yes | Audio file URL | `["url", "<url>", "<mime-type>", "<quality>"]` |
+| `image` | No | Album artwork | `["image", "<url>"]` |
+| `published_at` | No | Publication timestamp | `["published_at", "<unix-timestamp>"]` |
+
+### Content Field
+
+The content field may contain:
+- Song description
+- Lyrics
+- Artist notes
+- Empty string (if all metadata is in tags)
+
+### Design Goals
+
+- **Queryable Metadata**: All metadata is in tags for efficient relay filtering
+- **Multiple Formats**: Support for multiple audio formats/qualities via multiple `url` tags
+- **Extensible**: Easy to add new metadata fields as tags
+- **Native to Nostr**: Follows established Nostr patterns rather than external specifications
+
+### Migration Path
+
+This proposed standard is designed to eventually replace kind 32123 for music content published directly to Nostr, while maintaining backward compatibility during transition.

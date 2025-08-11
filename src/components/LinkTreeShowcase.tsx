@@ -42,9 +42,25 @@ function LinkTreeCard({ entry, className }: LinkTreeCardProps) {
         <div className="flex items-center gap-4">
           {/* Icon */}
           <div className="flex-shrink-0">
-            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-pink-500/20 to-yellow-500/20 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-              {entry.icon}
-            </div>
+            {entry.iconUrl ? (
+              <div className="h-12 w-12 rounded-full overflow-hidden bg-gradient-to-br from-pink-500/20 to-yellow-500/20 group-hover:scale-110 transition-transform">
+                <img 
+                  src={entry.iconUrl} 
+                  alt={entry.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to emoji if image fails to load
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-2xl">${entry.icon}</div>`;
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-pink-500/20 to-yellow-500/20 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                {entry.icon}
+              </div>
+            )}
           </div>
           
           {/* Content */}

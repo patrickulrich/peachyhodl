@@ -9,7 +9,6 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useWallet } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/useToast';
-import { wavlakeAPI } from '@/lib/wavlake';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import QRCode from 'qrcode';
 
@@ -97,6 +96,7 @@ export function WavlakeZapDialog({ track, children, className }: WavlakeZapDialo
 
     setIsGenerating(true);
     try {
+      const { wavlakeAPI } = await import('@/lib/wavlake');
       const finalAmount = typeof amount === 'string' ? parseInt(amount, 10) : amount;
       
       // Use Wavlake's LNURL endpoint to get payment request

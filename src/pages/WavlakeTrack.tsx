@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { useMemo } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,32 +38,36 @@ const WavlakeTrack = () => {
   // TODO: Implement useWavlakeTrack hook to fetch track details from Wavlake API
   const { data: track, isLoading, error } = useWavlakeTrack(trackId);
 
-  // Convert WavlakeTrack to MusicTrack if needed
-  const trackData: MusicTrack | undefined = track ? {
-    id: track.id,
-    title: track.title,
-    artist: track.artist,
-    album: track.albumTitle,
-    duration: track.duration,
-    image: track.albumArtUrl || track.artistArtUrl,
-    mediaUrl: track.mediaUrl,
-    albumArtUrl: track.albumArtUrl,
-    artistArtUrl: track.artistArtUrl,
-    artistId: track.artistId,
-    albumId: track.albumId,
-    artistNpub: track.artistNpub,
-    msatTotal: track.msatTotal,
-    releaseDate: track.releaseDate,
-    description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
-    publishedAt: new Date(track.releaseDate).getTime() / 1000,
-    urls: [{
-      url: track.mediaUrl,
-      mimeType: 'audio/mpeg',
-      quality: 'stream'
-    }],
-    createdAt: Math.floor(Date.now() / 1000),
-    pubkey: track.artistNpub,
-  } : undefined;
+  // Convert WavlakeTrack to MusicTrack if needed - memoized to prevent audio restarts
+  const trackData: MusicTrack | undefined = useMemo(() => {
+    if (!track) return undefined;
+    
+    return {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.albumTitle,
+      duration: track.duration,
+      image: track.albumArtUrl || track.artistArtUrl,
+      mediaUrl: track.mediaUrl,
+      albumArtUrl: track.albumArtUrl,
+      artistArtUrl: track.artistArtUrl,
+      artistId: track.artistId,
+      albumId: track.albumId,
+      artistNpub: track.artistNpub,
+      msatTotal: track.msatTotal,
+      releaseDate: track.releaseDate,
+      description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
+      publishedAt: new Date(track.releaseDate).getTime() / 1000,
+      urls: [{
+        url: track.mediaUrl,
+        mimeType: 'audio/mpeg',
+        quality: 'stream'
+      }],
+      createdAt: new Date(track.releaseDate).getTime() / 1000, // Use consistent timestamp from release date
+      pubkey: track.artistNpub,
+    };
+  }, [track]);
 
   useSeoMeta({
     title: trackData ? `${trackData.title || 'Unknown Track'} - ${trackData.artist || 'Unknown Artist'}` : 'Track',

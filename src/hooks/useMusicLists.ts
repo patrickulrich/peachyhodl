@@ -1,7 +1,6 @@
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import type { NostrEvent } from '@nostrify/nostrify';
-import { wavlakeAPI } from '@/lib/wavlake';
 
 // Peachy's pubkey
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -268,47 +267,56 @@ export function useWavlakePicks() {
       }
 
       // Fetch track details from Wavlake API for each track ID
-      const musicTracks: MusicTrack[] = [];
+      // Import wavlakeAPI once for all requests
+      const { wavlakeAPI } = await import('@/lib/wavlake');
       
-      for (const trackId of trackIds) {
+      // Process track IDs and make parallel API calls
+      const trackPromises = trackIds.map(async (trackId): Promise<MusicTrack | null> => {
         try {
           // Extract track ID from Wavlake URL if needed
           const actualTrackId = trackId.includes('wavlake.com') 
             ? trackId.split('/').pop()?.split('?')[0] 
             : trackId;
             
-          if (actualTrackId) {
-            const track = await wavlakeAPI.getTrack(actualTrackId);
-            musicTracks.push({
-              id: track.id,
-              title: track.title,
-              artist: track.artist,
-              album: track.albumTitle,
-              duration: track.duration,
-              image: track.albumArtUrl || track.artistArtUrl,
-              mediaUrl: track.mediaUrl,
-              albumArtUrl: track.albumArtUrl,
-              artistArtUrl: track.artistArtUrl,
-              artistId: track.artistId,
-              albumId: track.albumId,
-              artistNpub: track.artistNpub,
-              msatTotal: track.msatTotal,
-              releaseDate: track.releaseDate,
-              description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
-              publishedAt: new Date(track.releaseDate).getTime() / 1000,
-              urls: [{
-                url: track.mediaUrl,
-                mimeType: 'audio/mpeg',
-                quality: 'stream'
-              }],
-              createdAt: Math.floor(Date.now() / 1000),
-              pubkey: track.artistNpub,
-            });
-          }
+          if (!actualTrackId) return null;
+          
+          const track = await wavlakeAPI.getTrack(actualTrackId);
+          return {
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            album: track.albumTitle || undefined,
+            duration: track.duration,
+            image: track.albumArtUrl || track.artistArtUrl,
+            mediaUrl: track.mediaUrl,
+            albumArtUrl: track.albumArtUrl,
+            artistArtUrl: track.artistArtUrl,
+            artistId: track.artistId,
+            albumId: track.albumId,
+            artistNpub: track.artistNpub,
+            msatTotal: track.msatTotal,
+            releaseDate: track.releaseDate,
+            description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
+            publishedAt: new Date(track.releaseDate).getTime() / 1000,
+            urls: [{
+              url: track.mediaUrl,
+              mimeType: 'audio/mpeg',
+              quality: 'stream'
+            }],
+            createdAt: Math.floor(Date.now() / 1000),
+            pubkey: track.artistNpub,
+          };
         } catch (error) {
           console.error(`Failed to fetch track ${trackId}:`, error);
+          return null;
         }
-      }
+      });
+      
+      // Wait for all requests to complete in parallel
+      const trackResults = await Promise.all(trackPromises);
+      
+      // Filter out any null results from failed requests and ensure type safety
+      const musicTracks = trackResults.filter((track): track is MusicTrack => track !== null);
 
       return {
         id: picksEvent.id,
@@ -339,16 +347,19 @@ export function useTracksFromList(tracks: MusicTrack[] | string[]) {
       // If tracks is an array of strings (track IDs), fetch them from Wavlake
       if (tracks && tracks.length > 0 && typeof tracks[0] === 'string') {
         const trackIds = tracks as string[];
-        const fetchedTracks: MusicTrack[] = [];
         
-        for (const trackId of trackIds) {
+        // Import wavlakeAPI once for all requests
+        const { wavlakeAPI } = await import('@/lib/wavlake');
+        
+        // Make all API calls in parallel instead of sequential
+        const trackPromises = trackIds.map(async (trackId): Promise<MusicTrack | null> => {
           try {
             const track = await wavlakeAPI.getTrack(trackId);
-            fetchedTracks.push({
+            return {
               id: track.id,
               title: track.title,
               artist: track.artist,
-              album: track.albumTitle,
+              album: track.albumTitle || undefined,
               duration: track.duration,
               image: track.albumArtUrl || track.artistArtUrl,
               mediaUrl: track.mediaUrl,
@@ -368,13 +379,18 @@ export function useTracksFromList(tracks: MusicTrack[] | string[]) {
               }],
               createdAt: Math.floor(Date.now() / 1000),
               pubkey: track.artistNpub,
-            });
+            };
           } catch (error) {
             console.error(`Failed to fetch track ${trackId}:`, error);
+            return null; // Return null for failed requests
           }
-        }
+        });
         
-        return fetchedTracks;
+        // Wait for all requests to complete in parallel
+        const fetchedTracks = await Promise.all(trackPromises);
+        
+        // Filter out any null results from failed requests and ensure type safety
+        return fetchedTracks.filter((track): track is MusicTrack => track !== null);
       }
       
       return [];

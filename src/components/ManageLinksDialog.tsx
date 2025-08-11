@@ -12,6 +12,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { usePeachyLinktree, LinktreeEntry } from '@/hooks/usePeachyLinktree';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
+import { IconSelector } from '@/components/IconSelector';
 
 interface ManageLinksDialogProps {
   open: boolean;
@@ -117,14 +118,16 @@ export function ManageLinksDialog({ open, onOpenChange }: ManageLinksDialogProps
     
     setIsLoading(true);
     try {
-      // Create r tags for each entry
+      // Create r tags for each entry with extended format: ["r", "url", "title", "description", "icon", "iconUrl"]
       const rTags = entries
         .filter(entry => entry.title.trim() && entry.url.trim())
         .map(entry => [
           'r', 
           entry.url.trim(), 
           entry.title.trim(), 
-          entry.description?.trim() || ''
+          entry.description?.trim() || '',
+          entry.icon?.trim() || '',
+          entry.iconUrl?.trim() || ''
         ]);
 
       // Publish the updated bookmark set as kind 30003 per NIP-51
@@ -279,17 +282,26 @@ function EntryCard({ entry, onEdit, onSave, onCancel, onDelete }: EntryCardProps
   const [title, setTitle] = useState(entry.title);
   const [url, setUrl] = useState(entry.url);
   const [description, setDescription] = useState(entry.description || '');
+  const [icon, setIcon] = useState(entry.icon || '');
+  const [iconUrl, setIconUrl] = useState(entry.iconUrl || '');
 
   useEffect(() => {
     if (!entry.isEditing) {
       setTitle(entry.title);
       setUrl(entry.url);
       setDescription(entry.description || '');
+      setIcon(entry.icon || '');
+      setIconUrl(entry.iconUrl || '');
     }
-  }, [entry.isEditing, entry.title, entry.url, entry.description]);
+  }, [entry.isEditing, entry.title, entry.url, entry.description, entry.icon, entry.iconUrl]);
+
+  const handleIconChange = (newIcon: string, newIconUrl?: string) => {
+    setIcon(newIcon);
+    setIconUrl(newIconUrl || '');
+  };
 
   const handleSave = () => {
-    onSave({ title, url, description });
+    onSave({ title, url, description, icon, iconUrl });
   };
 
   if (entry.isEditing) {
@@ -334,6 +346,12 @@ function EntryCard({ entry, onEdit, onSave, onCancel, onDelete }: EntryCardProps
                 rows={2}
               />
             </div>
+
+            <IconSelector
+              currentIcon={icon}
+              currentIconUrl={iconUrl}
+              onIconChange={handleIconChange}
+            />
           </div>
 
           <div className="flex justify-end gap-2">
@@ -357,7 +375,25 @@ function EntryCard({ entry, onEdit, onSave, onCancel, onDelete }: EntryCardProps
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-            <div className="text-2xl flex-shrink-0">{entry.icon}</div>
+            <div className="flex-shrink-0">
+              {entry.iconUrl ? (
+                <div className="w-8 h-8 rounded-lg overflow-hidden bg-muted">
+                  <img 
+                    src={entry.iconUrl} 
+                    alt={entry.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to emoji if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-xl">${entry.icon}</div>`;
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="text-2xl">{entry.icon}</div>
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold truncate">{entry.title}</h3>

@@ -8,7 +8,8 @@ export interface LinktreeEntry {
   title: string;
   url: string;
   description?: string;
-  icon?: string;
+  icon?: string; // Auto-detected emoji or custom emoji
+  iconUrl?: string; // Custom uploaded image URL
 }
 
 export function usePeachyLinktree() {
@@ -35,20 +36,23 @@ export function usePeachyLinktree() {
       const entries: LinktreeEntry[] = [];
 
       // Parse entries from tags
-      // Each entry should have an 'r' tag with URL and optional title
+      // Each entry should have an 'r' tag with format: ["r", "url", "title", "description", "icon", "iconUrl"]
       listEvent.tags.forEach((tag, index) => {
         if (tag[0] === 'r' && tag[1]) {
           const url = tag[1];
           const title = tag[2] || url;
           const description = tag[3] || '';
+          const customIcon = tag[4] || '';
+          const iconUrl = tag[5] || '';
           
           entries.push({
             id: `entry-${index}`,
             title,
             url,
             description,
-            // Try to extract domain for icon
-            icon: getDomainIcon(url)
+            // Use custom icon if available, otherwise auto-detect from domain
+            icon: customIcon || getDomainIcon(url),
+            iconUrl: iconUrl || undefined
           });
         }
       });

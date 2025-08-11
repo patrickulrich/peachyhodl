@@ -4,7 +4,6 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/useToast';
-import { addTrackToPicksSimple } from '@/lib/addTrackToPicks';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { Plus, Loader2 } from 'lucide-react';
 
@@ -50,6 +49,8 @@ export function AddToPlaylistButton({
     setIsAdding(true);
 
     try {
+      const { addTrackToPicksSimple } = await import('@/lib/addTrackToPicks');
+      
       const success = await addTrackToPicksSimple(
         track,
         publishEvent,
