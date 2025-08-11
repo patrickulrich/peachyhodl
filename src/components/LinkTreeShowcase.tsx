@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -5,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, Settings } from 'lucide-react';
 import { usePeachyLinktree, LinktreeEntry } from '@/hooks/usePeachyLinktree';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { ManageLinksDialog } from '@/components/ManageLinksDialog';
 import { cn } from '@/lib/utils';
 
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -92,6 +94,7 @@ interface LinkTreeShowcaseProps {
 export function LinkTreeShowcase({ className }: LinkTreeShowcaseProps) {
   const { data: entries = [], isLoading, error } = usePeachyLinktree();
   const { user } = useCurrentUser();
+  const [manageDialogOpen, setManageDialogOpen] = useState(false);
   
   // Type-safe entries array
   const typedEntries: LinktreeEntry[] = entries || [];
@@ -100,8 +103,7 @@ export function LinkTreeShowcase({ className }: LinkTreeShowcaseProps) {
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
 
   const handleManageList = () => {
-    // TODO: Open list management dialog/page
-    console.log('Manage list clicked');
+    setManageDialogOpen(true);
   };
 
   if (error) {
@@ -115,27 +117,28 @@ export function LinkTreeShowcase({ className }: LinkTreeShowcaseProps) {
   }
 
   return (
-    <div className={cn("space-y-6", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Links & Resources</h2>
-          <p className="text-muted-foreground">
-            Quick access to Peachy's favorite links and resources
-          </p>
+    <>
+      <div className={cn("space-y-6", className)}>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Links & Resources</h2>
+            <p className="text-muted-foreground">
+              Quick access to Peachy's favorite links and resources
+            </p>
+          </div>
+          {isPeachy && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManageList}
+              className="gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Manage List
+            </Button>
+          )}
         </div>
-        {isPeachy && (
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleManageList}
-            className="gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Manage List
-          </Button>
-        )}
-      </div>
 
       {/* Content */}
       <div className="relative">
@@ -176,6 +179,13 @@ export function LinkTreeShowcase({ className }: LinkTreeShowcaseProps) {
           </div>
         )}
       </div>
-    </div>
+      </div>
+
+      {/* Manage Links Dialog */}
+      <ManageLinksDialog 
+        open={manageDialogOpen} 
+        onOpenChange={setManageDialogOpen} 
+      />
+    </>
   );
 }

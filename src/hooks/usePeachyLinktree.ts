@@ -19,9 +19,9 @@ export function usePeachyLinktree() {
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(1500)]);
       
-      // Query for Peachy's 'peachy-linktree' addressable list (kind 30001)
+      // Query for Peachy's 'peachy-linktree' bookmark set (kind 30003) per NIP-51
       const events = await nostr.query([{
-        kinds: [30001],
+        kinds: [30003],
         authors: [PEACHY_PUBKEY],
         '#d': ['peachy-linktree'],
         limit: 1
