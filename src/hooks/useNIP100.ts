@@ -339,10 +339,33 @@ export function useNIP100() {
     setIsListening(true);
 
     try {
-      // NRTC Pattern: Start fresh - don't look for past events
-      // This prevents trying to connect to users who may have already left
-      // We'll announce our presence and existing users will connect to us
+      // NRTC Pattern: Discover existing participants when joining
+      // Get recent connect events so new joiners can find existing users
       const recentEvents: NostrEvent[] = [];
+      
+      try {
+        // Query for recent connect events to discover existing participants
+        const participantQuery = nostr.req([{
+          kinds: [25050],
+          '#r': [PEACHY_AUDIO_ROOM.id],
+          since: Math.floor(Date.now() / 1000) - 60, // Last minute
+          limit: 20,
+        }], { signal: AbortSignal.timeout(2000) });
+
+        for await (const msg of participantQuery) {
+          if (msg[0] === 'EVENT') {
+            const event = msg[2];
+            const typeTag = event.tags.find(([tag]) => tag === 'type')?.[1];
+            if (typeTag === 'connect' && event.pubkey !== user.pubkey) {
+              recentEvents.push(event);
+            }
+          } else if (msg[0] === 'EOSE') {
+            break; // Got all recent events
+          }
+        }
+      } catch {
+        console.log('Could not fetch recent participants, continuing...');
+      }
 
       const handleEvent = async (event: NostrEvent) => {
         try {
