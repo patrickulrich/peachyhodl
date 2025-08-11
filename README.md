@@ -81,6 +81,7 @@ A decentralized personal website and social platform built entirely on Nostr pro
 | [NIP-27](https://github.com/nostr-protocol/nips/blob/master/27.md) | Text Note References | ✅ Mention notifications and user tagging | **Component**: `LiveStreamToolbar` **Feature**: User mentions in posts |
 | [NIP-22](https://github.com/nostr-protocol/nips/blob/master/22.md) | Comments | ✅ Threaded comment system | **Component**: `CommentsSection` **Hooks**: `useComments`, `usePostComment` **Feature**: Comments on all content types |
 | [NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md) | Long-form Content | ✅ Blog articles and rich content | **Page**: `Blog` **Hook**: `useBlogPosts` **Kind**: 30023 for articles |
+| [NIP-31](https://github.com/nostr-protocol/nips/blob/master/31.md) | Unknown Events | ✅ Alt tag descriptions for custom events | **Hook**: `useNotificationReadStatus` **Feature**: Human-readable event descriptions |
 | [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Lists | ✅ Music playlists and curation sets | **Components**: `ManagePicksDialog`, `AddToPlaylistButton` **Hook**: `useMusicLists` **Pages**: WeeklySongsLeaderboard, WavlakePicks |
 | [NIP-53](https://github.com/nostr-protocol/nips/blob/master/53.md) | Live Activities | ✅ Live streams and events | **Pages**: Events, live streaming **Hooks**: `useLiveEvents`, `useLiveStream`, `useLiveChat` **Components**: Live chat systems |
 | [NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md) | Lightning Zaps | ✅ Bitcoin micropayments | **Component**: `ZapButton` **Hooks**: `useZaps`, `useZapNotifications` **Pages**: PartyView, music pages **Feature**: Lightning payments |
@@ -92,6 +93,7 @@ A decentralized personal website and social platform built entirely on Nostr pro
 | [NIP-89](https://github.com/nostr-protocol/nips/blob/master/89.md) | Client Tags | ✅ Automatic client attribution on published events | **Hook**: `useNostrPublish` **Feature**: Automatic client tagging on all published events |
 | [NIP-94](https://github.com/nostr-protocol/nips/blob/master/94.md) | File Metadata | ✅ Media file handling | **Hook**: `useUploadFile` **Components**: File upload components **Feature**: Media metadata |
 | [NIP-96](https://github.com/nostr-protocol/nips/blob/master/96.md) | File Storage | ✅ Blossom server uploads | **Hook**: `useUploadFile` **Components**: `EditProfileForm`, `IconSelector`, `SignupDialog` **Feature**: File storage |
+| [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) | HTTP Auth | ✅ Authentication for file storage servers | **Hook**: `useUploadFile` **Feature**: Secure file uploads to Blossom servers |
 | [NIP-100](https://github.com/chakany/nips/blob/webrtc/100.md) | WebRTC Audio | ✅ Real-time voice chat with moderation | **Component**: `AudioRoom` **Hook**: `useNIP100` **Page**: AudioRooms **Kind**: 25050 for signaling |
 
 ## 🎯 Event Kinds Reference
@@ -128,6 +130,40 @@ This table shows all Nostr event kinds used throughout the application with thei
 - **Replaceable Events** (10000 ≤ kind < 20000): Only latest per pubkey+kind is kept  
 - **Addressable Events** (30000 ≤ kind < 40000): Latest per pubkey+kind+d-tag combination
 - **Legacy Kinds** (<1000): Special cases with individual storage rules
+
+## 📁 File Storage - Blossom Integration
+
+PeachyHODL leverages [Blossom](https://github.com/hzrd149/blossom) servers for decentralized file storage, implementing the NIP-96 standard for HTTP File Storage Integration.
+
+### Features
+
+| Feature | Description | Implementation | NIP Reference |
+|---------|-------------|----------------|---------------|
+| **Secure Upload** | NIP-98 HTTP Auth for authenticated uploads | ✅ Authentication headers with signed Nostr events | [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) |
+| **File Metadata** | NIP-94 compatible tags for media information | ✅ SHA-256 hashes, MIME types, dimensions, alt text | [NIP-94](https://github.com/nostr-protocol/nips/blob/master/94.md) |
+| **Multi-server Support** | Upload to multiple Blossom servers for redundancy | ✅ Configurable server endpoints | [NIP-96](https://github.com/nostr-protocol/nips/blob/master/96.md) |
+| **Image Processing** | Automatic resizing and format optimization | ✅ Server-side transformations with original hash preservation | [NIP-96](https://github.com/nostr-protocol/nips/blob/master/96.md) |
+
+### Usage in Components
+
+- **Profile Pictures**: `EditProfileForm`, `SignupDialog` - Avatar and banner uploads
+- **Link Icons**: `IconSelector` - Custom icons for LinkTree entries  
+- **Media Content**: Future support for photo galleries and rich media
+
+### Security & Privacy
+
+- **Authenticated Uploads**: All uploads require NIP-98 signed authentication
+- **Hash Verification**: SHA-256 hashes ensure file integrity
+- **Decentralized Storage**: No single point of failure with multiple server support
+- **User Ownership**: Files are cryptographically linked to user's public key
+
+### Technical Implementation
+
+The `useUploadFile` hook handles the complete Blossom upload flow:
+1. **Authentication**: Creates NIP-98 signed authorization header
+2. **Upload**: POST to Blossom server with multipart form data
+3. **Metadata**: Returns NIP-94 compatible tags with URLs and hashes
+4. **Integration**: Tags can be directly used in Nostr events
 
 ### Custom Features
 
