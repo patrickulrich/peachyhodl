@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { FollowButton } from '@/components/FollowButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { LinkTreeShowcase } from '@/components/LinkTreeShowcase';
+import { ProfileText } from '@/components/ProfileText';
 import { useAuthor } from '@/hooks/useAuthor';
 import { Bitcoin, Zap, Users, Globe } from 'lucide-react';
 import type { Event } from 'nostr-tools';
@@ -48,7 +49,14 @@ const About = () => {
                 </Avatar>
                 <div className="flex-1 text-center md:text-left">
                   <h1 className="text-3xl font-bold mb-2">
-                    {metadata?.display_name || metadata?.name || 'Peachy'}
+                    {(metadata?.display_name || metadata?.name) ? (
+                      <ProfileText 
+                        text={metadata?.display_name || metadata?.name || 'Peachy'}
+                        profileEvent={author.data?.event}
+                      />
+                    ) : (
+                      'Peachy'
+                    )}
                   </h1>
                   <p className="text-xl text-muted-foreground mb-4">
                     Bitcoin is the future and it's just peachy.
@@ -142,9 +150,17 @@ const About = () => {
             <CardTitle>About</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground whitespace-pre-wrap">
-              {metadata?.about || 
-              `Welcome to my corner of the Nostr network! I'm passionate about Bitcoin and believe it represents the future of money and freedom.
+            <div className="text-muted-foreground">
+              {metadata?.about ? (
+                <ProfileText 
+                  text={metadata.about}
+                  profileEvent={author.data?.event}
+                  preserveWhitespace
+                  className="block"
+                />
+              ) : (
+                <p className="whitespace-pre-wrap">
+                  {`Welcome to my corner of the Nostr network! I'm passionate about Bitcoin and believe it represents the future of money and freedom.
 
 Join me for live streams, discussions, and content about:
 • Bitcoin education and adoption
@@ -154,7 +170,9 @@ Join me for live streams, discussions, and content about:
 • Financial freedom and self-sovereignty
 
 Let's make the future peachy together! 🍑⚡`}
-            </p>
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
 

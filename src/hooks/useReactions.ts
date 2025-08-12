@@ -13,6 +13,7 @@ export interface ReactionSummary {
     content: string;
     count: number;
     userReacted: boolean;
+    events: NostrEvent[]; // All reaction events for this content
   }>;
   userLiked: boolean;
   isModerated: boolean; // True if Peachy reacted with ❌
@@ -117,7 +118,7 @@ export function useReactions(eventId: string | null) {
   };
 
   if (reactions.length > 0) {
-    const reactionMap = new Map<string, { count: number; userReacted: boolean }>();
+    const reactionMap = new Map<string, { count: number; userReacted: boolean; events: NostrEvent[] }>();
     
     reactions.forEach((reaction) => {
       const content = reaction.content.trim();
@@ -137,10 +138,11 @@ export function useReactions(eventId: string | null) {
         }
       } else {
         // Handle emoji reactions
-        const existing = reactionMap.get(content) || { count: 0, userReacted: false };
+        const existing = reactionMap.get(content) || { count: 0, userReacted: false, events: [] };
         reactionMap.set(content, {
           count: existing.count + 1,
           userReacted: existing.userReacted || isUserReaction,
+          events: [...existing.events, reaction],
         });
       }
     });
@@ -150,6 +152,7 @@ export function useReactions(eventId: string | null) {
       content,
       count: data.count,
       userReacted: data.userReacted,
+      events: data.events,
     }));
   }
 

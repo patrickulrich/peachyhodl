@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Heart, Smile } from "lucide-react";
 import { useReactions } from "@/hooks/useReactions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { ReactionContent } from "./ReactionContent";
 import { cn } from "@/lib/utils";
 import type { NostrEvent } from "@nostrify/nostrify";
 
@@ -119,23 +120,35 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
       {/* Show individual emoji reactions */}
       {reactionSummary.reactions.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap">
-          {reactionSummary.reactions.map((reaction) => (
-            <Button
-              key={reaction.content}
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-6 px-1.5 text-xs transition-colors",
-                reaction.userReacted && "bg-primary/10 ring-1 ring-primary/20",
-                !reaction.userReacted && "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => handleEmojiSelect(reaction.content)}
-              disabled={isAddingReaction}
-            >
-              <span className="mr-0.5">{reaction.content}</span>
-              <span className="tabular-nums">{reaction.count}</span>
-            </Button>
-          ))}
+          {reactionSummary.reactions.map((reaction) => {
+            // Use the first event with custom emoji tags, or fall back to any event
+            const eventWithEmoji = reaction.events.find(e => 
+              e.tags.some(tag => tag[0] === 'emoji')
+            ) || reaction.events[0];
+
+            return (
+              <Button
+                key={reaction.content}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-6 px-1.5 text-xs transition-colors",
+                  reaction.userReacted && "bg-primary/10 ring-1 ring-primary/20",
+                  !reaction.userReacted && "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => handleEmojiSelect(reaction.content)}
+                disabled={isAddingReaction}
+              >
+                <span className="mr-0.5">
+                  <ReactionContent 
+                    content={reaction.content}
+                    reactionEvent={eventWithEmoji}
+                  />
+                </span>
+                <span className="tabular-nums">{reaction.count}</span>
+              </Button>
+            );
+          })}
         </div>
       )}
     </div>

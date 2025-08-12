@@ -591,7 +591,9 @@ export function UnifiedLivestreamChat() {
       const scrollToBottom = () => {
         const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
         if (scrollContainer) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight + 1000;
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          // Mark user as at bottom after initial scroll
+          isAtBottomRef.current = true;
         }
       };
 
@@ -601,14 +603,13 @@ export function UnifiedLivestreamChat() {
         setTimeout(scrollToBottom, 10);
         setTimeout(scrollToBottom, 50);
         setTimeout(scrollToBottom, 100);
-        setTimeout(scrollToBottom, 200);
       });
       
       hasInitialScrolled.current = true;
     }
   }, [unifiedMessages.length]);
 
-  // Track new messages and auto-scroll
+  // Track new messages and auto-scroll when user is at bottom
   useEffect(() => {
     if (unifiedMessages.length > prevMessagesLength.current) {
       const newMessages = unifiedMessages.slice(prevMessagesLength.current);
@@ -618,27 +619,22 @@ export function UnifiedLivestreamChat() {
         return newIds;
       });
       
-      // Always auto-scroll to bottom for new messages
-      // This ensures users always see the latest chat
-      const scrollToBottom = () => {
-        const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-        if (scrollContainer) {
-          // Force scroll to absolute bottom
-          scrollContainer.scrollTop = scrollContainer.scrollHeight + 1000;
-        }
-      };
+      // If user is at bottom, keep them there with new messages
+      if (isAtBottomRef.current) {
+        const scrollToBottom = () => {
+          const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+          if (scrollContainer) {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          }
+        };
 
-      // Immediate scroll
-      scrollToBottom();
-      // Use RAF for after render
-      requestAnimationFrame(() => {
-        scrollToBottom();
-        // Additional attempts for any delayed rendering
-        setTimeout(scrollToBottom, 10);
-        setTimeout(scrollToBottom, 50);
-        setTimeout(scrollToBottom, 100);
-        setTimeout(scrollToBottom, 200);
-      });
+        // Use RAF to scroll after the new messages render
+        requestAnimationFrame(() => {
+          scrollToBottom();
+          // Additional attempt to handle any delayed rendering
+          setTimeout(scrollToBottom, 50);
+        });
+      }
     }
     
     prevMessagesLength.current = unifiedMessages.length;
