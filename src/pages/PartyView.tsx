@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { useWavlakePicks, useTracksFromList } from '@/hooks/useMusicLists';
 import { useWavlakeArtist } from '@/hooks/useWavlake';
+import QRCode from 'qrcode';
 import { 
   X, 
   Music, 
@@ -67,25 +68,101 @@ export default function PartyView() {
   // Generate Lightning QR code for zapping
   useEffect(() => {
     const generateZapQr = async () => {
-      if (!currentTrack?.artist) {
+      if (!currentTrack?.id) {
         setZapQrCode(null);
         return;
       }
 
       try {
-        // Create a Lightning invoice URL for the artist
-        // Using a more reliable approach with the artist's Wavlake profile
-        const zapAmount = 1000; // 1000 sats
-        const zapData = `https://wavlake.com/artist/${currentTrack.artistId}?zap=${zapAmount}`;
+        // Get LNURL for the track from Wavlake API
+        const { wavlakeAPI } = await import('@/lib/wavlake');
+        const lnurlResponse = await wavlakeAPI.getLnurl(currentTrack.id, 'peachyhodl');
         
-        // Generate QR code using a reliable QR service
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&format=png&data=${encodeURIComponent(zapData)}`;
-        setZapQrCode(qrUrl);
+        if (!lnurlResponse.lnurl) {
+          throw new Error('No LNURL found for this track');
+        }
+
+        // Decode LNURL to get the actual URL
+        const { bech32 } = await import('bech32');
+        const decoded = bech32.decode(lnurlResponse.lnurl, 2000);
+        const bytes = bech32.fromWords(decoded.words);
+        const lnurlPayUrl = new TextDecoder().decode(new Uint8Array(bytes));
+
+        // Fetch LNURL-pay parameters
+        const lnurlPayResponse = await fetch(lnurlPayUrl);
+        if (!lnurlPayResponse.ok) {
+          throw new Error('Failed to fetch LNURL-pay parameters');
+        }
+        
+        const lnurlPayData = await lnurlPayResponse.json();
+        
+        if (lnurlPayData.status === 'ERROR') {
+          throw new Error(lnurlPayData.reason || 'LNURL-pay error');
+        }
+
+        // Request a 1000 sat invoice
+        const amountMsats = 1000 * 1000; // 1000 sats in millisats
+        
+        // Validate amount is within allowed range
+        if (amountMsats < lnurlPayData.minSendable || amountMsats > lnurlPayData.maxSendable) {
+          console.warn(`Amount adjusted to fit range: ${lnurlPayData.minSendable / 1000} - ${lnurlPayData.maxSendable / 1000} sats`);
+        }
+
+        // Request invoice from callback URL
+        const callbackUrl = new URL(lnurlPayData.callback);
+        callbackUrl.searchParams.set('amount', Math.max(amountMsats, lnurlPayData.minSendable).toString());
+        callbackUrl.searchParams.set('comment', `Party mode zap for ${currentTrack.title} 🎵`);
+
+        const invoiceResponse = await fetch(callbackUrl.toString());
+        if (!invoiceResponse.ok) {
+          throw new Error('Failed to generate invoice');
+        }
+
+        const invoiceData = await invoiceResponse.json();
+        
+        if (invoiceData.status === 'ERROR') {
+          throw new Error(invoiceData.reason || 'Invoice generation error');
+        }
+
+        if (!invoiceData.pr) {
+          throw new Error('No payment request returned');
+        }
+
+        // Generate QR code from the Lightning invoice
+        const qrDataUrl = await QRCode.toDataURL(invoiceData.pr.toUpperCase(), {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF',
+          },
+        });
+        
+        setZapQrCode(qrDataUrl);
       } catch (error) {
-        console.error('Failed to generate QR code:', error);
-        // Fallback QR code
-        const fallbackData = `https://wavlake.com/artist/${currentTrack?.artistId || ''}`;
-        setZapQrCode(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&format=png&data=${encodeURIComponent(fallbackData)}`);
+        console.error('Failed to generate Lightning QR code:', error);
+        // Fallback: Generate QR code for the LNURL itself if invoice generation fails
+        try {
+          const { wavlakeAPI } = await import('@/lib/wavlake');
+          const lnurlResponse = await wavlakeAPI.getLnurl(currentTrack.id, 'peachyhodl');
+          
+          if (lnurlResponse.lnurl) {
+            const qrDataUrl = await QRCode.toDataURL(lnurlResponse.lnurl.toUpperCase(), {
+              width: 300,
+              margin: 2,
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF',
+              },
+            });
+            setZapQrCode(qrDataUrl);
+          } else {
+            setZapQrCode(null);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback QR generation also failed:', fallbackError);
+          setZapQrCode(null);
+        }
       }
     };
 
@@ -318,23 +395,20 @@ export default function PartyView() {
                   <h3 className="text-3xl font-bold text-foreground">Support the Artist</h3>
                 </div>
 
-                <div className="w-72 h-72 mx-auto bg-white rounded-lg p-4 flex items-center justify-center border-2 border-dashed border-muted">
+                <div className="w-72 h-72 mx-auto bg-white rounded-lg p-4 flex items-center justify-center">
                   {zapQrCode ? (
                     <img
                       src={zapQrCode}
-                      alt="Lightning QR Code"
+                      alt="Lightning Invoice QR Code"
                       className="w-full h-full object-contain"
-                      onLoad={() => console.log('QR Code loaded successfully')}
-                      onError={(e) => {
-                        console.error('QR Code failed to load:', e);
-                        setZapQrCode(null);
-                      }}
                     />
                   ) : (
                     <div className="text-center space-y-4">
-                      <QrCode className="h-24 w-24 text-muted-foreground mx-auto" />
-                      <p className="text-lg text-muted-foreground">
-                        Generating QR Code...
+                      <div className="animate-pulse">
+                        <QrCode className="h-24 w-24 text-muted-foreground/50 mx-auto" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Generating Lightning invoice...
                       </p>
                     </div>
                   )}

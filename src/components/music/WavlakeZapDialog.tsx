@@ -110,7 +110,9 @@ export function WavlakeZapDialog({ track, children, className }: WavlakeZapDialo
       // Step 2: Decode LNURL (bech32 encoded)
       const { bech32 } = await import('bech32');
       const decoded = bech32.decode(lnurlResponse.lnurl, 2000);
-      const lnurlPayUrl = Buffer.from(bech32.fromWords(decoded.words)).toString();
+      const bytes = bech32.fromWords(decoded.words);
+      // Use TextDecoder for browser compatibility instead of Buffer
+      const lnurlPayUrl = new TextDecoder().decode(new Uint8Array(bytes));
 
       // Step 3: Fetch LNURL-pay parameters
       const lnurlPayResponse = await fetch(lnurlPayUrl);
