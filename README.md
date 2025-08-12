@@ -136,7 +136,6 @@ This table shows all Nostr event kinds used throughout the application with thei
 | **30024** | Addressable | [NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md) | Draft articles | Unpublished blog content | **Hook**: `useBlogPosts` **Feature**: Draft content management |
 | **30078** | Addressable | [NIP-78](https://github.com/nostr-protocol/nips/blob/master/78.md) | App-specific data | Notification read status | **Hook**: `useNotificationReadStatus` **Page**: NotificationsPage **Feature**: App state persistence |
 | **30311** | Addressable | [NIP-53](https://github.com/nostr-protocol/nips/blob/master/53.md) | Live events | Livestream definitions | **Hook**: `useLiveEvents`, `useLiveStream` **Pages**: Events, Index **Feature**: Live streaming events |
-| **31337** | Addressable | [Custom Kind](./NIP.md#nip-31337-proposed-music-standard-events) | Nostr-native music format | Tag-based metadata for better relay filtering | **Hook**: `useMusicLists` **Feature**: Proposed standard with title, artist, album, duration, genre, and url tags |
 | **32123** | Addressable | [Custom Kind](./NIP.md#nip-32123-music-track-events-wavlake-compatibility) | Wavlake music compatibility | NOM specification with JSON metadata in content | **Hook**: `useMusicLists` **Pages**: WavlakeTrack, WavlakeAlbum, WavlakeArtist **Feature**: Full Bitcoin music platform integration |
 
 ### Event Kind Categories
@@ -184,7 +183,6 @@ The `useUploadFile` hook handles the complete Blossom upload flow:
 
 | Feature | Description | Implementation | Technical Details |
 |---------|-------------|----------------|-------------------|
-| **Custom Kind 31337** | Nostr-native music standard with tag-based metadata | ✅ Proposed format for better relay filtering and queryability | **Metadata**: Uses tags for title, artist, album, duration, genre, url with MIME types **Benefits**: Efficient relay-level filtering, extensible tag system **Status**: Proposed standard for future adoption |
 | **Custom Kind 32123** | Wavlake music compatibility using NOM specification | ✅ Full integration with Bitcoin music platform | **Format**: JSON metadata in content field following NOM spec **Data**: title, creator, duration, enclosure URL, GUID **Integration**: Direct streaming from Wavlake with album art and waveform data |
 | **Single-Vote System** | Community-driven track rankings with one vote per user | ✅ Replaceable events ensure fair voting | **Mechanism**: Kind 30003 addressable events with d-tag "peachy-song-vote" **Voting**: Each user's vote replaces previous vote, preventing spam **Leaderboard**: Real-time aggregation of votes across all users for weekly rankings |
 
@@ -480,33 +478,6 @@ Comprehensive Bitcoin music ecosystem integration:
 - **Efficient Queries** - Combined Nostr filters to minimize relay load
 - **Background Sync** - Non-blocking operations for better UX
 
-## 🚀 Recent Updates
-
-### **v2.1 - Enhanced Chat & Lightning Integration** (December 2025)
-
-#### **Chat Experience Improvements**
-- **🖼️ Image Previews** - Automatic rendering of image links (.png/.jpg/.gif/.webp) with click-to-view functionality
-- **🔍 Smart @ Mentions** - Real-time participant search and filtering when typing @ mentions in chat
-- **⚡ Instant Moderation** - Real-time chat moderation with ❌ reactions that immediately hide messages
-- **🎨 Visual Improvements** - Enhanced message styling with moderated message graying vs hiding behavior
-
-#### **Lightning Payment Enhancements**
-- **⚡ Wavlake LNURL Integration** - Direct Lightning payments to artists using proper LNURL protocol
-- **🔄 Full Payment Flow** - Complete LNURL-pay implementation with bech32 decoding and invoice generation
-- **💳 WebLN Support** - Seamless browser wallet integration for one-click payments
-- **📱 QR Code Support** - Automatic QR code generation for mobile wallet compatibility
-
-#### **Technical Improvements**
-- **🔄 Real-time Subscriptions** - Enhanced `nostr.req()` streaming for instant chat updates
-- **⚡ Query Optimization** - Efficient relay queries with combined filters and proper invalidation
-- **🛠️ Component Architecture** - Modular `NoteContent` component for universal image and mention parsing
-- **🎯 Error Handling** - Robust error handling for LNURL flows and network issues
-
-#### **Developer Experience**
-- **📦 Dependencies** - Added bech32 library for LNURL decoding
-- **🧪 Testing** - Comprehensive test coverage for new features
-- **📝 Documentation** - Updated README with feature details and implementation notes
-- **🔧 TypeScript** - Full type safety for LNURL responses and payment flows
 
 ## 📞 Support
 

@@ -167,10 +167,10 @@ export function useMusicTracks() {
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
       
-      // Query for music tracks (both current Wavlake kind and proposed standard)
+      // Query for music tracks (Wavlake format)
       const events = await nostr.query([
         {
-          kinds: [32123, 31337], // Wavlake + proposed standard
+          kinds: [32123], // Wavlake tracks with NOM specification
           authors: [PEACHY_PUBKEY],
           limit: 100,
         }

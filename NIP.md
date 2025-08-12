@@ -323,7 +323,6 @@ This document defines custom event kinds specific to Peachy HODL's Bitcoin music
 ## Custom Event Kinds
 
 - **25050** - WebRTC signaling events (NIP-100)
-- **31337** - Proposed Nostr-native music standard
 - **32123** - Wavlake music tracks with NOM specification compatibility
 
 ## NIP-100: WebRTC over Nostr
@@ -593,77 +592,10 @@ This kind is used for compatibility with existing Wavlake music content and foll
 
 ---
 
-## NIP-31337: Proposed Music Standard Events
-
-`draft` `optional` `author:peachy`
-
-This specification defines a proposed standardized format for music events on Nostr, designed to be more native to the Nostr ecosystem while maintaining interoperability.
-
-### Event Kind
-
-Proposed standard music events use kind `31337`.
-
-### Event Structure
-
-This kind follows a more Nostr-native approach using tags for metadata:
-
-```json
-{
-  "kind": 31337,
-  "pubkey": "<artist pubkey>",
-  "content": "<optional description or lyrics>",
-  "tags": [
-    ["title", "Song Title"],
-    ["artist", "Artist Name"],
-    ["album", "Album Name"],
-    ["duration", "180"],
-    ["genre", "Rock"],
-    ["url", "https://example.com/song.mp3", "audio/mpeg", "stream"],
-    ["image", "https://example.com/album-art.jpg"],
-    ["published_at", "1640995200"]
-  ]
-}
-```
-
-### Tag Specifications
-
-| Tag | Required | Description | Format |
-|-----|----------|-------------|--------|
-| `title` | Yes | Song title | `["title", "Song Title"]` |
-| `artist` | Yes | Artist name | `["artist", "Artist Name"]` |
-| `album` | No | Album name | `["album", "Album Name"]` |
-| `duration` | No | Duration in seconds | `["duration", "180"]` |
-| `genre` | No | Music genre | `["genre", "Rock"]` |
-| `url` | Yes | Audio file URL | `["url", "<url>", "<mime-type>", "<quality>"]` |
-| `image` | No | Album artwork | `["image", "<url>"]` |
-| `published_at` | No | Publication timestamp | `["published_at", "<unix-timestamp>"]` |
-
-### Content Field
-
-The content field may contain:
-- Song description
-- Lyrics
-- Artist notes
-- Empty string (if all metadata is in tags)
-
-### Design Goals
-
-- **Queryable Metadata**: All metadata is in tags for efficient relay filtering
-- **Multiple Formats**: Support for multiple audio formats/qualities via multiple `url` tags
-- **Extensible**: Easy to add new metadata fields as tags
-- **Native to Nostr**: Follows established Nostr patterns rather than external specifications
-
-### Migration Path
-
-This proposed standard is designed to eventually replace kind 32123 for music content published directly to Nostr, while maintaining backward compatibility during transition.
-
----
-
 ## Implementation Status
 
-Peachy HODL implements all three custom NIPs:
+Peachy HODL implements both custom NIPs:
 - **NIP-100**: Complete WebRTC over Nostr implementation with extensions for audio rooms, moderation, and participant management
 - **NIP-32123**: Full Wavlake compatibility with NOM specification for Bitcoin music integration
-- **NIP-31337**: Proposed Nostr-native music standard for enhanced functionality and better relay filtering
 
 These custom extensions enable comprehensive real-time communication and Bitcoin music integration while maintaining interoperability with existing Nostr applications.
