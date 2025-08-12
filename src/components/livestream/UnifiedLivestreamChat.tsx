@@ -501,6 +501,7 @@ export function UnifiedLivestreamChat() {
   const prevMessagesLength = useRef(0);
   const isAtBottomRef = useRef(true);
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const hasInitialScrolled = useRef(false);
 
   // Merge and sort all messages by timestamp
   const unifiedMessages = useMemo(() => {
@@ -584,6 +585,29 @@ export function UnifiedLivestreamChat() {
     };
   }, []);
 
+  // Initial scroll to bottom when messages load
+  useEffect(() => {
+    if (!hasInitialScrolled.current && unifiedMessages.length > 0) {
+      const scrollToBottom = () => {
+        const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight + 1000;
+        }
+      };
+
+      // Use multiple attempts to ensure scroll happens after render
+      requestAnimationFrame(() => {
+        scrollToBottom();
+        setTimeout(scrollToBottom, 10);
+        setTimeout(scrollToBottom, 50);
+        setTimeout(scrollToBottom, 100);
+        setTimeout(scrollToBottom, 200);
+      });
+      
+      hasInitialScrolled.current = true;
+    }
+  }, [unifiedMessages.length]);
+
   // Track new messages and auto-scroll
   useEffect(() => {
     if (unifiedMessages.length > prevMessagesLength.current) {
@@ -594,27 +618,27 @@ export function UnifiedLivestreamChat() {
         return newIds;
       });
       
-      // Auto-scroll only if we're at the bottom
-      if (isAtBottomRef.current) {
-        const scrollToBottom = () => {
-          const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-          if (scrollContainer) {
-            // Force scroll to absolute bottom
-            scrollContainer.scrollTop = scrollContainer.scrollHeight + 1000;
-          }
-        };
+      // Always auto-scroll to bottom for new messages
+      // This ensures users always see the latest chat
+      const scrollToBottom = () => {
+        const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) {
+          // Force scroll to absolute bottom
+          scrollContainer.scrollTop = scrollContainer.scrollHeight + 1000;
+        }
+      };
 
-        // Immediate scroll
+      // Immediate scroll
+      scrollToBottom();
+      // Use RAF for after render
+      requestAnimationFrame(() => {
         scrollToBottom();
-        // Use RAF for after render
-        requestAnimationFrame(() => {
-          scrollToBottom();
-          // Additional attempts for any delayed rendering
-          setTimeout(scrollToBottom, 10);
-          setTimeout(scrollToBottom, 50);
-          setTimeout(scrollToBottom, 100);
-        });
-      }
+        // Additional attempts for any delayed rendering
+        setTimeout(scrollToBottom, 10);
+        setTimeout(scrollToBottom, 50);
+        setTimeout(scrollToBottom, 100);
+        setTimeout(scrollToBottom, 200);
+      });
     }
     
     prevMessagesLength.current = unifiedMessages.length;
