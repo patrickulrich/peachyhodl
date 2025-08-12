@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MusicPlayer } from '@/components/music/MusicPlayer';
+import { MusicPlayer, type MusicPlayerRef } from '@/components/music/MusicPlayer';
+import { PsychedelicBitcoinVisualizer } from '@/components/audio/PsychedelicBitcoinVisualizer';
 import { useWavlakeRankings } from '@/hooks/useWavlake';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import type { WavlakeTrack } from '@/lib/wavlake';
@@ -28,6 +29,9 @@ export default function WavlakeRadio() {
   });
 
   const navigate = useNavigate();
+  const musicPlayerRef = useRef<MusicPlayerRef>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [playerIsPlaying, setPlayerIsPlaying] = useState(false);
   
   // Filter state
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
@@ -40,6 +44,25 @@ export default function WavlakeRadio() {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const currentTrack = radioPlaylist[currentTrackIndex];
+
+  // Monitor music player ref changes to update visualizer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (musicPlayerRef.current) {
+        const newAudioElement = musicPlayerRef.current.audioElement;
+        const newIsPlaying = musicPlayerRef.current.isPlaying;
+        
+        if (newAudioElement !== audioElement) {
+          setAudioElement(newAudioElement);
+        }
+        if (newIsPlaying !== playerIsPlaying) {
+          setPlayerIsPlaying(newIsPlaying);
+        }
+      }
+    }, 100); // Check every 100ms
+
+    return () => clearInterval(interval);
+  }, [audioElement, playerIsPlaying]);
 
   // Popular genres for filtering (same as explore-wavlake)
   const genres = [
@@ -171,7 +194,9 @@ export default function WavlakeRadio() {
         </Button>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-8">
+      <div className="flex-1 flex">
+        {/* Left side - Radio interface */}
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
         {!isRadioStarted ? (
           // Setup screen
           <div className="max-w-lg w-full space-y-8">
@@ -337,12 +362,23 @@ export default function WavlakeRadio() {
             </div>
           </div>
         )}
+        </div>
+
+        {/* Right side - Psychedelic Bitcoin Visualizer */}
+        <div className="w-1/2 min-h-0 bg-black">
+          <PsychedelicBitcoinVisualizer
+            audioElement={audioElement}
+            isPlaying={playerIsPlaying}
+            className="h-full"
+          />
+        </div>
       </div>
 
       {/* Music Player */}
       {currentTrack && isRadioStarted && (
         <div className="fixed bottom-0 left-0 right-0">
           <MusicPlayer
+            ref={musicPlayerRef}
             track={currentTrack}
             autoPlay={isPlaying}
             onNext={handleNext}

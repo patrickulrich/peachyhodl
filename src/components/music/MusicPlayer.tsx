@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -30,7 +30,12 @@ interface MusicPlayerProps {
   className?: string;
 }
 
-export function MusicPlayer({ track, onNext, onPrevious, onClose, autoPlay = false, className }: MusicPlayerProps) {
+export interface MusicPlayerRef {
+  audioElement: HTMLAudioElement | null;
+  isPlaying: boolean;
+}
+
+export const MusicPlayer = forwardRef<MusicPlayerRef, MusicPlayerProps>(({ track, onNext, onPrevious, onClose, autoPlay = false, className }, ref) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -38,6 +43,12 @@ export function MusicPlayer({ track, onNext, onPrevious, onClose, autoPlay = fal
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Expose audio element and playing state to parent
+  useImperativeHandle(ref, () => ({
+    audioElement: audioRef.current,
+    isPlaying,
+  }), [isPlaying]);
 
   // Voting functionality
   const { user } = useCurrentUser();
@@ -397,4 +408,6 @@ export function MusicPlayer({ track, onNext, onPrevious, onClose, autoPlay = fal
       </CardContent>
     </Card>
   );
-}
+});
+
+MusicPlayer.displayName = 'MusicPlayer';
