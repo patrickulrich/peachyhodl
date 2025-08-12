@@ -57,7 +57,9 @@ export function PsychedelicBitcoinVisualizer({
 
         // Resume audio context if suspended
         if (audioContext.state === 'suspended') {
+          console.log('Resuming suspended audio context...');
           await audioContext.resume();
+          console.log('Audio context resumed, state:', audioContext.state);
         }
 
         console.log('Creating analyser and source...');
@@ -68,26 +70,12 @@ export function PsychedelicBitcoinVisualizer({
         analyser.smoothingTimeConstant = 0.8;
         analyserRef.current = analyser;
 
-        // Check if element already has a source (to avoid creating multiple)
-        if (!sourceRef.current) {
-          try {
-            // Create source and connect
-            const source = audioContext.createMediaElementSource(audioElement);
-            sourceRef.current = source;
-            
-            source.connect(analyser);
-            analyser.connect(audioContext.destination);
-            
-            console.log('Audio source connected successfully');
-          } catch (error) {
-            console.warn('Failed to connect audio source (CORS restriction):', error);
-            console.log('Audio playback will work but visualization will use fallback animation');
-            setCorsBlocked(true);
-            setHasAudioData(false);
-            // Continue with initialization but without audio source connection
-            // The audio will still play through the normal audio element
-          }
-        }
+        // For now, skip Web Audio API connection to avoid interfering with audio playback
+        // The CORS restrictions make it mostly ineffective anyway
+        console.log('Using mathematical visualization to avoid audio interference');
+        console.log('This ensures reliable audio playback on all tracks');
+        setCorsBlocked(true);
+        setHasAudioData(false);
 
         // Create data array
         const bufferLength = analyser.frequencyBinCount;
@@ -107,6 +95,14 @@ export function PsychedelicBitcoinVisualizer({
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+      }
+      if (sourceRef.current) {
+        try {
+          sourceRef.current.disconnect();
+        } catch {
+          // Ignore disconnect errors
+        }
+        sourceRef.current = null;
       }
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
