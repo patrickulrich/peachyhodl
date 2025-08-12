@@ -1,0 +1,13 @@
+{
+  "names": {
+    "_": "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820"
+  },
+  "relays": {
+    "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820": [
+      "wss://relay.nostr.band",
+      "wss://relay.damus.io",
+      "wss://nostr.wine",
+      "wss://relay.primal.net"
+    ]
+  }
+}
