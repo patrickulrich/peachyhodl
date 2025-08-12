@@ -14,6 +14,7 @@ import { useMessageModeration } from "@/hooks/useMessageModeration";
 import { ReactionButton } from "@/components/reactions/ReactionButton";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
+import { cn } from "@/lib/utils";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface LiveChatProps {
@@ -120,22 +121,60 @@ function MentionLink({ pubkey }: { pubkey: string }) {
   );
 }
 
-// Component for mention suggestions
-function MentionSuggestion({ pubkey, onSelect }: { pubkey: string; onSelect: (pubkey: string, name: string) => void }) {
+// Component to get participant data with names for filtering
+function useParticipantWithName(pubkey: string) {
   const author = useAuthor(pubkey);
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(pubkey);
   
+  return {
+    pubkey,
+    name: displayName,
+    picture: metadata?.picture,
+    isLoaded: !!author.data // Track if data is loaded
+  };
+}
+
+// Component for mention suggestions
+function MentionSuggestion({ 
+  participant, 
+  mentionSearch,
+  onSelect 
+}: { 
+  participant: ChatParticipant; 
+  mentionSearch: string;
+  onSelect: (pubkey: string, name: string) => void 
+}) {
+  const participantData = useParticipantWithName(participant.pubkey);
+  
+  // Check if search matches
+  const searchTerm = mentionSearch.toLowerCase().trim();
+  const userName = participantData.name.toLowerCase();
+  
+  // Hide if search doesn't match
+  if (searchTerm && !userName.includes(searchTerm)) return null;
+  
+  // Calculate match quality for visual feedback
+  const isExactMatch = searchTerm && userName === searchTerm;
+  const startsWithMatch = searchTerm && userName.startsWith(searchTerm);
+  
   return (
     <button
-      className="flex items-center gap-2 w-full p-2 hover:bg-muted rounded text-left"
-      onClick={() => onSelect(pubkey, displayName)}
+      className={cn(
+        "flex items-center gap-2 w-full p-2 hover:bg-muted rounded text-left transition-colors",
+        isExactMatch && "bg-primary/10 border border-primary/20",
+        startsWithMatch && !isExactMatch && "bg-accent/50"
+      )}
+      onClick={() => onSelect(participant.pubkey, participantData.name)}
     >
       <Avatar className="h-6 w-6">
-        <AvatarImage src={metadata?.picture} alt={displayName} />
-        <AvatarFallback>{displayName[0].toUpperCase()}</AvatarFallback>
+        <AvatarImage src={participantData.picture} alt={participantData.name} />
+        <AvatarFallback>{participantData.name[0].toUpperCase()}</AvatarFallback>
       </Avatar>
-      <span className="text-sm font-medium">{displayName}</span>
+      <span className="text-sm font-medium">{participantData.name}</span>
+      {isExactMatch && (
+        <span className="ml-auto text-xs text-primary">Exact match</span>
+      )}
     </button>
   );
 }
@@ -249,14 +288,12 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
     setMentionSearch("");
   };
   
-  // Filter participants based on search
+
+  // Filter participants based on search - filtering will be done in the component
   const filteredParticipants = useMemo(() => {
-    if (!mentionSearch) return participants.slice(0, 5);
-    
-    // We'll filter by name in the MentionSuggestion component
-    // For now, just limit the list
-    return participants.slice(0, 5);
-  }, [participants, mentionSearch]);
+    // Show most recent participants first, limited to prevent overwhelming UI
+    return participants.slice().reverse().slice(0, 8);
+  }, [participants]);
   
   // Handle mention selection
   const handleMentionSelect = (pubkey: string, name: string) => {
@@ -338,7 +375,7 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
             <div className="space-y-1 py-2 w-full overflow-hidden">
               {messages.map((message) => (
                 <ChatMessage 
-                  key={message.id} 
+                  key={message.id}
                   message={message} 
                   isNew={newMessageIds.has(message.id)}
                 />
@@ -350,19 +387,26 @@ export function LiveChat({ liveEventId, liveEvent }: LiveChatProps) {
         {user ? (
           <form onSubmit={handleSendMessage} className="p-4 border-t flex-shrink-0 relative">
             {/* Mention suggestions dropdown */}
-            {showMentions && filteredParticipants.length > 0 && (
+            {showMentions && (
               <div className="absolute bottom-full left-4 right-4 mb-2 bg-popover border rounded-lg shadow-lg p-2 max-h-48 overflow-y-auto">
                 <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
                   <AtSign className="h-3 w-3" />
-                  Mention a participant
+                  {mentionSearch ? `Search: "${mentionSearch}"` : "Mention a participant"}
                 </div>
-                {filteredParticipants.map((participant) => (
-                  <MentionSuggestion
-                    key={participant.pubkey}
-                    pubkey={participant.pubkey}
-                    onSelect={handleMentionSelect}
-                  />
-                ))}
+                {filteredParticipants.length > 0 ? (
+                  filteredParticipants.map((participant) => (
+                    <MentionSuggestion
+                      key={participant.pubkey}
+                      participant={participant}
+                      mentionSearch={mentionSearch}
+                      onSelect={handleMentionSelect}
+                    />
+                  ))
+                ) : (
+                  <div className="text-xs text-muted-foreground text-center py-2">
+                    No participants in chat yet
+                  </div>
+                )}
               </div>
             )}
             

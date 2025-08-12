@@ -26,19 +26,22 @@ export function useLiveChat(liveEventId: string | null) {
     
     const subscribeToMessages = async () => {
       try {
-        const filter = {
-          kinds: [1311],
-          "#a": [liveEventId],
-          limit: 100,
-        };
+        const filters = [
+          {
+            kinds: [1311],
+            "#a": [liveEventId],
+            limit: 100,
+          }
+        ];
         
         // Use req() for real-time streaming of messages
-        const messageStream = nostr.req([filter], { signal: abortController.signal });
+        const messageStream = nostr.req(filters, { signal: abortController.signal });
 
         for await (const msg of messageStream) {
           if (msg[0] === 'EVENT') {
             const event = msg[2];
             
+            // Handle chat messages
             setMessages(prev => {
               // Check if message already exists to prevent duplicates
               const exists = prev.some(msg => msg.id === event.id);
