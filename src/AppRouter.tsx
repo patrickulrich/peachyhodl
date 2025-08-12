@@ -26,7 +26,13 @@ export function AppRouter() {
   const basename = import.meta.env.VITE_BASE_PATH?.replace(/\/$/, '') || "";
   
   return (
-    <BrowserRouter basename={basename}>
+    <BrowserRouter 
+      basename={basename}
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Index />} />

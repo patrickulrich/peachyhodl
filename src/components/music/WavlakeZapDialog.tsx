@@ -99,35 +99,67 @@ export function WavlakeZapDialog({ track, children, className }: WavlakeZapDialo
       const { wavlakeAPI } = await import('@/lib/wavlake');
       const finalAmount = typeof amount === 'string' ? parseInt(amount, 10) : amount;
       
-      // Use Wavlake's LNURL endpoint to get payment request
-      const response = await wavlakeAPI.getLnurl(track.id, 'peachyhodl');
+      // Step 1: Get LNURL from Wavlake API
+      console.log('Requesting LNURL for track:', track.id, 'with appId: peachyhodl');
+      const lnurlResponse = await wavlakeAPI.getLnurl(track.id, 'peachyhodl');
       
-      if (!response.lnurl) {
+      if (!lnurlResponse.lnurl) {
         throw new Error('No LNURL found for this track');
       }
 
-      // For now, we'll use a simple LNURL approach
-      // In a full implementation, you'd decode the LNURL and make the payment request
-      const paymentUrl = `https://wavlake.com/track/${track.id}/zap?amount=${finalAmount * 1000}&comment=${encodeURIComponent(comment)}`;
+      // Step 2: Decode LNURL (bech32 encoded)
+      const { bech32 } = await import('bech32');
+      const decoded = bech32.decode(lnurlResponse.lnurl, 2000);
+      const lnurlPayUrl = Buffer.from(bech32.fromWords(decoded.words)).toString();
+
+      // Step 3: Fetch LNURL-pay parameters
+      const lnurlPayResponse = await fetch(lnurlPayUrl);
+      if (!lnurlPayResponse.ok) {
+        throw new Error('Failed to fetch LNURL-pay parameters');
+      }
       
-      // This is a simplified approach - normally you'd:
-      // 1. Decode the LNURL
-      // 2. Make a request to the callback URL with the amount
-      // 3. Get the payment request (invoice)
-      // For now, we'll show the payment URL
-      toast({
-        title: 'Zap on Wavlake',
-        description: 'Opening Wavlake to complete the zap...',
-      });
+      const lnurlPayData = await lnurlPayResponse.json();
       
-      window.open(paymentUrl, '_blank');
-      setOpen(false);
+      if (lnurlPayData.status === 'ERROR') {
+        throw new Error(lnurlPayData.reason || 'LNURL-pay error');
+      }
+
+      // Validate amount is within allowed range
+      const milliSatAmount = finalAmount * 1000;
+      if (milliSatAmount < lnurlPayData.minSendable || milliSatAmount > lnurlPayData.maxSendable) {
+        throw new Error(`Amount must be between ${lnurlPayData.minSendable / 1000} and ${lnurlPayData.maxSendable / 1000} sats`);
+      }
+
+      // Step 4: Request invoice from callback URL
+      const callbackUrl = new URL(lnurlPayData.callback);
+      callbackUrl.searchParams.set('amount', milliSatAmount.toString());
+      if (comment && lnurlPayData.commentAllowed && comment.length <= lnurlPayData.commentAllowed) {
+        callbackUrl.searchParams.set('comment', comment);
+      }
+
+      const invoiceResponse = await fetch(callbackUrl.toString());
+      if (!invoiceResponse.ok) {
+        throw new Error('Failed to generate invoice');
+      }
+
+      const invoiceData = await invoiceResponse.json();
+      
+      if (invoiceData.status === 'ERROR') {
+        throw new Error(invoiceData.reason || 'Invoice generation error');
+      }
+
+      if (!invoiceData.pr) {
+        throw new Error('No payment request returned');
+      }
+
+      // Step 5: Set the invoice for payment
+      setInvoice(invoiceData.pr);
       
     } catch (error) {
       console.error('Failed to generate invoice:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate payment. Try again later.',
+        description: error instanceof Error ? error.message : 'Failed to generate payment. Try again later.',
         variant: 'destructive',
       });
     } finally {
@@ -189,7 +221,7 @@ export function WavlakeZapDialog({ track, children, className }: WavlakeZapDialo
             Zap Track
           </DialogTitle>
           <DialogDescription>
-            Send sats to support this track on Wavlake
+            Send Lightning payments directly to support this track on Wavlake
           </DialogDescription>
         </DialogHeader>
 
@@ -290,12 +322,8 @@ export function WavlakeZapDialog({ track, children, className }: WavlakeZapDialo
               className="w-full"
             >
               <Zap className="h-4 w-4 mr-2" />
-              {isGenerating ? 'Generating...' : `Zap ${amount} sats`}
+              {isGenerating ? 'Generating Lightning Invoice...' : `Generate Invoice for ${amount} sats`}
             </Button>
-
-            <div className="text-xs text-muted-foreground text-center">
-              This will open Wavlake to complete the payment
-            </div>
           </div>
         )}
       </DialogContent>

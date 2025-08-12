@@ -149,10 +149,23 @@ export class WavlakeAPI {
     return response.json();
   }
 
-  async getLnurl(contentId: string, appId: string): Promise<WavlakeLnurlResponse> {
-    const response = await fetch(`${this.baseUrl}/lnurl?contentId=${contentId}&appId=${appId}`);
+  async getLnurl(contentId: string, appId?: string): Promise<WavlakeLnurlResponse> {
+    const url = appId 
+      ? `${this.baseUrl}/lnurl?contentId=${contentId}&appId=${appId}`
+      : `${this.baseUrl}/lnurl?contentId=${contentId}`;
+    const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`LNURL fetch failed: ${response.statusText}`);
+      // Try to get error details from response
+      let errorMessage = `LNURL fetch failed: ${response.statusText}`;
+      try {
+        const errorData = await response.json() as WavlakeErrorResponse;
+        if (errorData.error) {
+          errorMessage = `LNURL error: ${errorData.error}`;
+        }
+      } catch {
+        // If parsing fails, use default error message
+      }
+      throw new Error(errorMessage);
     }
     return response.json();
   }

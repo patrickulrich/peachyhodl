@@ -1,14 +1,76 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { type NostrEvent } from '@nostrify/nostrify';
 import { Link } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { cn } from '@/lib/utils';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface NoteContentProps {
   event: NostrEvent;
   className?: string;
+}
+
+// Component for click-to-view image previews
+function ImagePreview({ src }: { src: string }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  const toggleVisibility = () => {
+    setIsVisible(!isVisible);
+  };
+
+  const handleImageError = () => {
+    setHasError(true);
+  };
+
+  if (hasError) {
+    // Show as regular link if image fails to load
+    return (
+      <a 
+        href={src} 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        className="text-blue-500 hover:underline break-words"
+      >
+        {src}
+      </a>
+    );
+  }
+
+  return (
+    <div className="my-2">
+      {!isVisible ? (
+        <button
+          onClick={toggleVisibility}
+          className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent/80 rounded-md transition-colors text-sm"
+        >
+          <Eye className="h-4 w-4" />
+          <span>Click to view image</span>
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <button
+            onClick={toggleVisibility}
+            className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent/80 rounded-md transition-colors text-sm"
+          >
+            <EyeOff className="h-4 w-4" />
+            <span>Hide image</span>
+          </button>
+          <div className="border rounded-lg overflow-hidden max-w-sm">
+            <img
+              src={src}
+              alt="Chat image"
+              className="max-w-full h-auto"
+              onError={handleImageError}
+              loading="lazy"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Parses content of text note events so that URLs and hashtags are linkified. */
@@ -38,18 +100,27 @@ export function NoteContent({
       }
       
       if (url) {
-        // Handle URLs
-        parts.push(
-          <a 
-            key={`url-${keyCounter++}`}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
-          >
-            {url}
-          </a>
-        );
+        // Check if URL is an image
+        const imageExtensions = /\.(png|jpg|jpeg|gif|webp)(\?[^\s]*)?$/i;
+        if (imageExtensions.test(url)) {
+          // Handle image URLs with click-to-view
+          parts.push(
+            <ImagePreview key={`image-${keyCounter++}`} src={url} />
+          );
+        } else {
+          // Handle regular URLs
+          parts.push(
+            <a 
+              key={`url-${keyCounter++}`}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline"
+            >
+              {url}
+            </a>
+          );
+        }
       } else if (nostrPrefix && nostrData) {
         // Handle Nostr references
         try {

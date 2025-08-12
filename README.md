@@ -19,6 +19,7 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **📻 Live Audio Rooms** - Real-time voice chat using NIP-100 WebRTC with moderation tools and participant management
 - **🎥 Live Streaming** - NIP-53 live events with integrated chat and streaming controls
 - **🎶 Party View** - Full-screen music experience with artist info and Lightning QR codes for zapping
+- **⚡ Lightning Zaps** - Direct LNURL integration with Wavlake for seamless Bitcoin payments to artists
 - **🏆 Weekly Song Leaderboard** - Community-driven voting system for top tracks using kind 30003 events
 - **🎤 Single-Vote System** - One vote per user for authentic community-driven music rankings using NIP-51 replaceable events
 - **💡 Track Suggestions** - Users can suggest tracks to Peachy with messaging system
@@ -29,7 +30,9 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **📅 Event Calendar** - Upcoming and past live events via NIP-53 with status tracking
 - **💬 Advanced Comments System** - Threaded discussions on all content using NIP-22
 - **❤️ Interactive Reactions** - NIP-25 reactions on live chat messages with tap-to-like and long-press emoji selector
-- **🛡️ Chat Moderation** - Peachy can moderate live chat by reacting with ❌ to hide inappropriate messages
+- **🛡️ Chat Moderation** - Peachy can moderate live chat by reacting with ❌ to hide inappropriate messages instantly
+- **🖼️ Image Previews** - Click-to-view image rendering for .png/.jpg/.gif/.webp links in chat messages
+- **🔍 Smart Mentions** - @ mention search/sort functionality with real-time participant filtering
 - **🔗 NIP-19 Routing** - Direct access to any Nostr content via npub, note, nevent, naddr URLs
 - **📱 Unified Chat** - Global livestream chat system with real-time messaging and reactions
 
@@ -65,8 +68,9 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **HTML5 Audio** - Native browser audio with full playback controls and waveform visualization
 - **WebRTC** - Peer-to-peer voice chat for audio rooms with NRTC implementation patterns
 - **Image Optimization** - Responsive images with lazy loading and progressive enhancement
+- **Click-to-View Images** - Automatic image preview rendering in chat messages with lazy loading
 - **File Upload** - Blossom server integration for media storage with NIP-96 support
-- **Lightning Integration** - QR code generation for zapping artists and supporting Bitcoin music
+- **Lightning Integration** - LNURL payment processing for direct artist support via Wavlake API
 
 ## 📋 Supported NIPs
 
@@ -470,6 +474,34 @@ Comprehensive Bitcoin music ecosystem integration:
 - **Smart Caching** - React Query with strategic cache invalidation
 - **Efficient Queries** - Combined Nostr filters to minimize relay load
 - **Background Sync** - Non-blocking operations for better UX
+
+## 🚀 Recent Updates
+
+### **v2.1 - Enhanced Chat & Lightning Integration** (December 2025)
+
+#### **Chat Experience Improvements**
+- **🖼️ Image Previews** - Automatic rendering of image links (.png/.jpg/.gif/.webp) with click-to-view functionality
+- **🔍 Smart @ Mentions** - Real-time participant search and filtering when typing @ mentions in chat
+- **⚡ Instant Moderation** - Real-time chat moderation with ❌ reactions that immediately hide messages
+- **🎨 Visual Improvements** - Enhanced message styling with moderated message graying vs hiding behavior
+
+#### **Lightning Payment Enhancements**
+- **⚡ Wavlake LNURL Integration** - Direct Lightning payments to artists using proper LNURL protocol
+- **🔄 Full Payment Flow** - Complete LNURL-pay implementation with bech32 decoding and invoice generation
+- **💳 WebLN Support** - Seamless browser wallet integration for one-click payments
+- **📱 QR Code Support** - Automatic QR code generation for mobile wallet compatibility
+
+#### **Technical Improvements**
+- **🔄 Real-time Subscriptions** - Enhanced `nostr.req()` streaming for instant chat updates
+- **⚡ Query Optimization** - Efficient relay queries with combined filters and proper invalidation
+- **🛠️ Component Architecture** - Modular `NoteContent` component for universal image and mention parsing
+- **🎯 Error Handling** - Robust error handling for LNURL flows and network issues
+
+#### **Developer Experience**
+- **📦 Dependencies** - Added bech32 library for LNURL decoding
+- **🧪 Testing** - Comprehensive test coverage for new features
+- **📝 Documentation** - Updated README with feature details and implementation notes
+- **🔧 TypeScript** - Full type safety for LNURL responses and payment flows
 
 ## 📞 Support
 

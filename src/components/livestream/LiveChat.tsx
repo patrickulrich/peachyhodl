@@ -12,6 +12,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useMessageModeration } from "@/hooks/useMessageModeration";
 import { ReactionButton } from "@/components/reactions/ReactionButton";
+import { NoteContent } from "@/components/NoteContent";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
 import { cn } from "@/lib/utils";
@@ -22,60 +23,12 @@ interface LiveChatProps {
   liveEvent: NostrEvent | null;
 }
 
+
 function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean }) {
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(message.pubkey);
   const { isModerated } = useMessageModeration(message.id);
-  
-  // Parse content for nostr: mentions (similar to NoteContent component)
-  const parsedContent = useMemo(() => {
-    const content = message.content;
-    const parts: React.ReactNode[] = [];
-    // Use same regex pattern as NoteContent for consistency
-    const regex = /nostr:(npub1|nprofile1)([023456789acdefghjklmnpqrstuvwxyz]+)/g;
-    let lastIndex = 0;
-    let match;
-    
-    while ((match = regex.exec(content)) !== null) {
-      // Add text before mention
-      if (match.index > lastIndex) {
-        parts.push(content.slice(lastIndex, match.index));
-      }
-      
-      // Add mention as a link
-      try {
-        const nostrId = `${match[1]}${match[2]}`;
-        const decoded = nip19.decode(nostrId);
-        
-        // Handle different nostr identifier types
-        if (decoded.type === 'npub') {
-          const pubkey = decoded.data;
-          parts.push(
-            <MentionLink key={match.index} pubkey={pubkey} />
-          );
-        } else if (decoded.type === 'nprofile') {
-          const profileData = decoded.data;
-          parts.push(
-            <MentionLink key={match.index} pubkey={profileData.pubkey} />
-          );
-        } else {
-          parts.push(match[0]);
-        }
-      } catch {
-        parts.push(match[0]);
-      }
-      
-      lastIndex = match.index + match[0].length;
-    }
-    
-    // Add remaining text
-    if (lastIndex < content.length) {
-      parts.push(content.slice(lastIndex));
-    }
-    
-    return parts.length > 0 ? parts : content;
-  }, [message.content]);
 
   // Hide moderated messages in LiveChat
   if (isModerated) {
@@ -101,25 +54,13 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
           </div>
         </div>
         <div className="text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-          {parsedContent}
+          <NoteContent event={message} className="break-words overflow-wrap-anywhere" />
         </div>
       </div>
     </div>
   );
 }
 
-// Component to display mention links
-function MentionLink({ pubkey }: { pubkey: string }) {
-  const author = useAuthor(pubkey);
-  const metadata = author.data?.metadata;
-  const displayName = metadata?.name || genUserName(pubkey);
-  
-  return (
-    <span className="text-blue-500 font-medium hover:underline cursor-pointer break-words">
-      @{displayName}
-    </span>
-  );
-}
 
 // Component to get participant data with names for filtering
 function useParticipantWithName(pubkey: string) {
