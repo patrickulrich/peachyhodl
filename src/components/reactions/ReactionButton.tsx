@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Heart, Smile } from "lucide-react";
@@ -12,13 +12,13 @@ interface ReactionButtonProps {
   className?: string;
 }
 
-// Common emojis for reactions
+// Common emojis for reactions (❤️ first as the most common reaction)
 const REACTION_EMOJIS = [
-  "❤️", "😂", "😮", "😢", "😡", "👍", "👎", "🔥", "💯", "🎉",
+  "❤️", "👍", "😂", "😮", "😢", "😡", "👎", "🔥", "💯", "🎉",
   "🍑", "😀", "😊", "😍", "🥰", "😘", "😎", "🤔", "😏", "🙄",
   "😴", "🤓", "😕", "😳", "🥺", "😭", "😱", "😤", "💀", "🤡",
   "👻", "👽", "🤖", "😺", "🧡", "💛", "💚", "💙", "💜", "🖤",
-  "🤍", "💔", "💗", "💖", "👋", "👌", "✌️", "🤞", "🤘", "👏",
+  "💔", "💗", "💖", "👋", "👌", "✌️", "🤞", "🤘", "👏",
   "🙌", "🤝", "🙏", "💪", "✨", "⚡", "🌟", "⭐", "🌈", "☀️",
   "🎊", "🎁", "🎄", "🎃", "✅", "❌", "❓", "❗", "💬", "💭",
   "🚀", "💎", "📺", "🎮", "🎵", "🎶", "📱", "💰", "🤯", "🎯", "🪙"
@@ -28,58 +28,16 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
   const { user } = useCurrentUser();
   const { reactionSummary, addReaction, removeReaction, isAddingReaction } = useReactions(message.id);
   const [emojiPopoverOpen, setEmojiPopoverOpen] = useState(false);
-  const [isLongPress, setIsLongPress] = useState(false);
-  const longPressTimer = useRef<NodeJS.Timeout>();
-  const pressStartTime = useRef<number>();
 
   // Show reaction button even when not logged in, but disable interactions
   const isLoggedIn = !!user;
 
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isLoggedIn) return; // Don't handle interactions when not logged in
     
     e.preventDefault();
-    pressStartTime.current = Date.now();
-    setIsLongPress(false);
-    
-    longPressTimer.current = setTimeout(() => {
-      setIsLongPress(true);
-      setEmojiPopoverOpen(true);
-      // Haptic feedback if available
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-    }, 500); // 500ms for long press
-  };
-
-  const handleMouseUp = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isLoggedIn) return; // Don't handle interactions when not logged in
-    
-    e.preventDefault();
-    
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-    }
-
-    const pressDuration = Date.now() - (pressStartTime.current || 0);
-    
-    // If it was a short press (not long press), handle like/unlike
-    if (!isLongPress && pressDuration < 500) {
-      if (reactionSummary.userLiked) {
-        removeReaction({ targetEvent: message, content: "+" });
-      } else {
-        addReaction({ targetEvent: message, content: "+" });
-      }
-    }
-    
-    setIsLongPress(false);
-  };
-
-  const handleMouseLeave = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-    }
-    setIsLongPress(false);
+    // Always open the emoji selector on click
+    setEmojiPopoverOpen(true);
   };
 
   const handleEmojiSelect = (emoji: string) => {
@@ -101,6 +59,9 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
 
   const totalReactions = reactionSummary.likes + reactionSummary.reactions.reduce((sum, r) => sum + r.count, 0);
   const userHasReacted = reactionSummary.userLiked || reactionSummary.reactions.some(r => r.userReacted);
+  
+  // Check if user reacted with heart emoji specifically
+  const userReactedWithHeart = reactionSummary.reactions.some(r => r.content === "❤️" && r.userReacted);
 
   return (
     <div className={cn("flex items-center gap-1", className)}>
@@ -116,13 +77,9 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
               !isLoggedIn && "opacity-60 cursor-not-allowed"
             )}
             disabled={isAddingReaction || !isLoggedIn}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-            onTouchStart={handleMouseDown}
-            onTouchEnd={handleMouseUp}
+            onClick={handleClick}
           >
-            <Heart className={cn("h-3 w-3 mr-1", reactionSummary.userLiked && "fill-current")} />
+            <Heart className={cn("h-3 w-3 mr-1", (reactionSummary.userLiked || userReactedWithHeart) && "fill-current")} />
             {totalReactions > 0 && (
               <span className="tabular-nums">{totalReactions}</span>
             )}
