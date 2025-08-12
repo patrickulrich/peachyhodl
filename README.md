@@ -384,68 +384,6 @@ VITE_DEFAULT_RELAY_URL=wss://relay.nostr.band
 VITE_BLOSSOM_SERVER_URL=https://blossom.server.com
 ```
 
-## 📄 Page Structure
-
-The site includes 19+ specialized pages covering all aspects of Bitcoin music and Nostr interaction:
-
-### **Main Pages**
-- **Home** (`/`) - Live streams, recent photos, and featured Wavlake picks
-- **Blog** (`/blog`) - Long-form NIP-23 articles with featured content
-- **Photos** (`/photos`) - Complete photo gallery with NIP-68 integration
-- **Events** (`/events`) - Live event calendar with NIP-53 scheduling
-
-### **Music Pages** 
-- **Wavlake Picks** (`/wavlake-picks`) - Peachy's curated music collection
-- **Party View** (`/party-view`) - Full-screen music experience with zap codes
-- **Weekly Leaderboard** (`/weekly-songs-leaderboard`) - Community-voted top tracks
-- **Artist Pages** (`/artist/:id`) - Individual artist profiles with albums
-- **Album Pages** (`/album/:id`) - Full album listings with track management
-- **Track Pages** (`/wavlake/:id`) - Individual track details with voting
-- **Explore Wavlake** (`/explore-wavlake`) - Browse Bitcoin music catalog
-
-### **Interactive Features**
-- **Audio Rooms** (`/audio-rooms`) - WebRTC voice chat with NIP-100
-- **Live Chat** (`/chat`) - Global livestream messaging
-- **Notifications** (`/notifications`) - Track suggestion management (Peachy only)
-- **Edit Profile** (`/edit-profile`) - Profile management with NIP-05
-
-### **Nostr Integration**
-- **NIP-19 Routes** (`/npub1...`, `/note1...`, `/naddr1...`) - Direct Nostr content access
-
-## 🎯 Use Cases
-
-### Personal Websites
-- **Content Creators** - Share blogs, music, and media on a decentralized platform
-- **Musicians** - Showcase music with Bitcoin monetization
-- **Podcasters** - Host live audio events with audience interaction
-
-### Community Platforms
-- **Bitcoin Communities** - Value-for-value content with Lightning integration
-- **Open Source Projects** - Decentralized project communication and updates
-- **Educational Content** - Share knowledge with built-in monetization
-
-## 🤝 Contributing
-
-We welcome contributions! Here's how to get started:
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Make your changes** following the existing code style
-4. **Run tests** (`npm test`) to ensure everything works
-5. **Commit changes** (`git commit -m 'Add amazing feature'`)
-6. **Push to branch** (`git push origin feature/amazing-feature`)
-7. **Open a Pull Request**
-
-### Development Guidelines
-- **Follow TypeScript best practices** - Proper typing throughout
-- **Write tests** for new functionality
-- **Update documentation** for significant changes
-- **Follow NIP standards** when implementing Nostr features
-
-## 📜 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
 ## 🙏 Acknowledgments
 
 - **MKStack** - Original template and foundation
@@ -454,37 +392,10 @@ This project is open source and available under the [MIT License](LICENSE).
 - **shadcn/ui** - Beautiful component library
 - **Nostrify** - Modern Nostr framework
 
-## 🔧 Advanced Features
-
-### **WebRTC Implementation**
-The audio rooms implement chakany's NIP-100 WebRTC over Nostr specification:
-- **NIP-100 Compliance** - Full implementation of the WebRTC over Nostr standard
-- **Connection Management** - Automatic peer discovery and WebRTC signaling via Nostr
-- **Real-time Subscriptions** - Instant event delivery via Nostrify streaming
-- **Moderation System** - Extended kick/ban functionality with role-based permissions
-- **Participant Tracking** - Heartbeat system with stale participant cleanup
-
-### **Music Integration**
-Comprehensive Bitcoin music ecosystem integration:
-- **Wavlake API** - Full track, artist, and album data retrieval
-- **Lightning Zaps** - QR code generation for artist support
-- **Music Lists** - NIP-51 based playlist management
-- **Voting System** - Kind 30003 community-driven track rankings
-- **Track Discovery** - AI-powered music recommendations
-
-### **Performance Optimizations**
-- **Optimistic Updates** - Immediate UI feedback with background sync
-- **Smart Caching** - React Query with strategic cache invalidation
-- **Efficient Queries** - Combined Nostr filters to minimize relay load
-- **Background Sync** - Non-blocking operations for better UX
-
 
 ## 📞 Support
 
 - **Issues** - [GitHub Issues](https://github.com/patrickulrich/peachyhodl/issues)
-- **Discussions** - [GitHub Discussions](https://github.com/patrickulrich/peachyhodl/discussions)
-- **Nostr** - Follow [@peachy](https://primal.net/peachy) on Nostr
-- **Lightning** - Support development with Bitcoin tips
 - **Wavlake** - [Official Wavlake Platform](https://wavlake.com) for Bitcoin music
 
 ---
