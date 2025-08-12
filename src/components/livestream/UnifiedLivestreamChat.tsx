@@ -17,6 +17,7 @@ import { NoteContent } from "@/components/NoteContent";
 import { ReactionButton } from "@/components/reactions/ReactionButton";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useMessageModeration } from "@/hooks/useMessageModeration";
+import { isUserMentioned } from "@/lib/mentions";
 import LoginDialog from "@/components/auth/LoginDialog";
 import type { NostrEvent } from "@nostrify/nostrify";
 import type { TwitchMessage } from "@/lib/twitch";
@@ -121,6 +122,7 @@ interface NostrChatMessageProps {
 
 function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
   const author = useAuthor(message.pubkey);
+  const { user } = useCurrentUser();
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(message.pubkey);
   const { isModerated } = useMessageModeration(message.id);
@@ -129,6 +131,9 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
     minute: '2-digit' 
   });
 
+  // Check if current user is mentioned in this message
+  const isMentioned = user && isUserMentioned(message, user.pubkey);
+
   // Don't hide moderated messages in UnifiedLivestreamChat, just grey them out
 
   return (
@@ -136,7 +141,8 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
       className={cn(
         "p-4 rounded-lg border transition-all duration-300 w-full",
         isPeachy && "bg-gradient-to-r from-pink-500/10 to-pink-400/5 border-pink-500/30",
-        !isPeachy && "bg-card hover:bg-accent/5",
+        !isPeachy && !isMentioned && "bg-card hover:bg-accent/5",
+        isMentioned && "bg-gradient-to-r from-blue-500/15 to-cyan-500/10 border-blue-500/40 ring-1 ring-blue-500/30",
         isNew && "animate-in slide-in-from-bottom-2",
         isModerated && "opacity-50 bg-muted/30 border-destructive/20"
       )}

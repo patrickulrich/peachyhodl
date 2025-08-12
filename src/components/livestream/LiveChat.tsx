@@ -11,6 +11,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useMessageModeration } from "@/hooks/useMessageModeration";
+import { isUserMentioned } from "@/lib/mentions";
 import { ReactionButton } from "@/components/reactions/ReactionButton";
 import { NoteContent } from "@/components/NoteContent";
 import { genUserName } from "@/lib/genUserName";
@@ -26,9 +27,13 @@ interface LiveChatProps {
 
 function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean }) {
   const author = useAuthor(message.pubkey);
+  const { user } = useCurrentUser();
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(message.pubkey);
   const { isModerated } = useMessageModeration(message.id);
+
+  // Check if current user is mentioned in this message
+  const isMentioned = user && isUserMentioned(message, user.pubkey);
 
   // Hide moderated messages in LiveChat
   if (isModerated) {
@@ -36,9 +41,11 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
   }
 
   return (
-    <div className={`flex gap-3 p-3 hover:bg-muted/50 transition-all duration-300 w-full ${
-      isNew ? 'animate-in slide-in-from-bottom-2 bg-primary/5 border-l-2 border-primary' : ''
-    }`}>
+    <div className={cn(
+      "flex gap-3 p-3 hover:bg-muted/50 transition-all duration-300 w-full",
+      isNew && "animate-in slide-in-from-bottom-2 bg-primary/5 border-l-2 border-primary",
+      isMentioned && "bg-gradient-to-r from-blue-500/15 to-cyan-500/10 border-l-4 border-blue-500"
+    )}>
       <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarImage src={metadata?.picture} alt={displayName} />
         <AvatarFallback>{displayName[0].toUpperCase()}</AvatarFallback>
