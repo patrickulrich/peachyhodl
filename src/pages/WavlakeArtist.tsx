@@ -6,16 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWavlakeArtist } from '@/hooks/useWavlake';
 import { Music, ExternalLink, Calendar, User, Play, Disc3 } from 'lucide-react';
-import { MusicTrack } from '@/hooks/useMusicLists';
-import { MusicPlayer } from '@/components/music/MusicPlayer';
-import { useState } from 'react';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 
 export default function WavlakeArtist() {
   const { artistId } = useParams<{ artistId: string }>();
   const { data: artist, isLoading, error } = useWavlakeArtist(artistId);
-  const [_selectedTrack, _setSelectedTrack] = useState<MusicTrack | null>(null);
   
   // Get Nostr profile if artistNpub is available
   const author = useAuthor(artist?.artistNpub);
@@ -218,14 +214,6 @@ export default function WavlakeArtist() {
             </CardContent>
           </Card>
 
-          {/* Music Player */}
-          {_selectedTrack && (
-            <Card>
-              <CardContent className="p-6">
-                <MusicPlayer track={_selectedTrack} />
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </MainLayout>

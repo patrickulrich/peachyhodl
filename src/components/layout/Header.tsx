@@ -1,4 +1,5 @@
 import { Menu, Moon, Sun } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LoginArea } from "@/components/auth/LoginArea";
 import { TrackSuggestionNotifications } from "@/components/notifications/TrackSuggestionNotifications";
@@ -38,12 +39,12 @@ export function Header({ onMenuClick, className }: HeaderProps) {
 
         {/* Center: Logo */}
         <div className="flex-1 flex items-center justify-center lg:justify-start">
-          <a
-            href="/"
+          <Link
+            to="/"
             className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent hover:opacity-80 transition-opacity"
           >
             Peachy
-          </a>
+          </Link>
         </div>
 
         {/* Right: Notifications, Theme toggle and Login/Profile */}

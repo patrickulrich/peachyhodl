@@ -15,6 +15,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useWavlakePicks } from '@/hooks/useMusicLists';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/useToast';
+import { useGlobalMusicPlayer } from '@/hooks/useGlobalMusicPlayer';
 import { 
   Search, 
   TrendingUp, 
@@ -32,7 +33,6 @@ import {
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import type { WavlakeTrack } from '@/lib/wavlake';
 import { Link } from 'react-router-dom';
-import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
 import { SuggestTrackModalControlled } from '@/components/music/SuggestTrackModalControlled';
 
@@ -55,15 +55,11 @@ export default function WavlakeExplore() {
   const [trackToSuggest, setTrackToSuggest] = useState<MusicTrack | null>(null);
   const [suggestModalOpen, setSuggestModalOpen] = useState(false);
   
-  // Music player state
-  const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTrackList, setCurrentTrackList] = useState<MusicTrack[]>([]);
-
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { mutateAsync: publishEvent } = useNostrPublish();
   const queryClient = useQueryClient();
+  const { playTrack, isTrackPlaying } = useGlobalMusicPlayer();
   
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
   
@@ -311,40 +307,14 @@ export default function WavlakeExplore() {
     }
   }, [user, publishEvent, toast]);
 
-  // Music player functions
-  const playTrack = useCallback((track: MusicTrack, trackList: MusicTrack[] = []) => {
-    setCurrentTrack(track);
-    setCurrentTrackList(trackList.length > 0 ? trackList : [track]);
-    setIsPlaying(true);
-  }, []);
-
-  const handleNext = useCallback(() => {
-    if (!currentTrack || currentTrackList.length === 0) return;
-    
-    const currentIndex = currentTrackList.findIndex(t => t.id === currentTrack.id);
-    const nextIndex = (currentIndex + 1) % currentTrackList.length;
-    setCurrentTrack(currentTrackList[nextIndex]);
-    setIsPlaying(true);
-  }, [currentTrack, currentTrackList]);
-
-  const handlePrevious = useCallback(() => {
-    if (!currentTrack || currentTrackList.length === 0) return;
-    
-    const currentIndex = currentTrackList.findIndex(t => t.id === currentTrack.id);
-    const prevIndex = currentIndex === 0 ? currentTrackList.length - 1 : currentIndex - 1;
-    setCurrentTrack(currentTrackList[prevIndex]);
-    setIsPlaying(true);
-  }, [currentTrack, currentTrackList]);
-
-  const handleClosePlayer = useCallback(() => {
-    setCurrentTrack(null);
-    setIsPlaying(false);
-    setCurrentTrackList([]);
-  }, []);
+  // Music player function
+  const handleTrackPlay = useCallback((track: MusicTrack, trackList: MusicTrack[] = []) => {
+    playTrack(track, trackList.length > 0 ? trackList : [track]);
+  }, [playTrack]);
 
   return (
     <MainLayout>
-      <div className={`container mx-auto px-4 py-8 ${currentTrack ? 'pb-48 sm:pb-8' : ''}`}>
+      <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-4xl font-bold flex items-center gap-3">
@@ -437,12 +407,11 @@ export default function WavlakeExplore() {
                     ) : trendingTracks.length > 0 ? (
                       trendingTracks.map((track, index) => {
                         const musicTrack = convertToMusicTrack(track);
-                        const isCurrentTrack = currentTrack?.id === track.id;
-                        const trackIsPlaying = isCurrentTrack && isPlaying;
+                        const trackIsPlaying = isTrackPlaying(musicTrack.id);
                         
                         return (
                           <Card key={track.id} className={`group hover:shadow-md transition-all duration-200 ${
-                            isCurrentTrack ? 'ring-2 ring-primary/20 bg-primary/5' : ''
+                            trackIsPlaying ? 'ring-2 ring-primary/20 bg-primary/5' : ''
                           }`}>
                             <CardContent className="p-4">
                               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -466,7 +435,7 @@ export default function WavlakeExplore() {
                                     <Button
                                       size="sm"
                                       className="rounded-full h-8 w-8 p-0"
-                                      onClick={() => playTrack(musicTrack, trendingTracks.map(convertToMusicTrack))}
+                                      onClick={() => handleTrackPlay(musicTrack, trendingTracks.map(convertToMusicTrack))}
                                     >
                                       {trackIsPlaying ? (
                                         <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin" />
@@ -480,7 +449,7 @@ export default function WavlakeExplore() {
                                 <div className="flex-1 min-w-0 ml-11 sm:ml-0">
                                   <Link
                                     to={`/wavlake/${track.id}`}
-                                    className={`font-medium line-clamp-1 hover:underline block ${isCurrentTrack ? 'text-primary' : 'hover:text-primary'}`}
+                                    className={`font-medium line-clamp-1 hover:underline block ${trackIsPlaying ? 'text-primary' : 'hover:text-primary'}`}
                                   >
                                     {track.title}
                                   </Link>
@@ -502,7 +471,7 @@ export default function WavlakeExplore() {
                                   <Button
                                     size="sm"
                                     variant={trackIsPlaying ? "default" : "outline"}
-                                    onClick={() => playTrack(musicTrack, trendingTracks.map(convertToMusicTrack))}
+                                    onClick={() => handleTrackPlay(musicTrack, trendingTracks.map(convertToMusicTrack))}
                                   >
                                     {trackIsPlaying ? (
                                       <div className="h-3 w-3 border border-current border-t-transparent rounded-full animate-spin mr-2" />
@@ -774,7 +743,7 @@ export default function WavlakeExplore() {
                                           const { wavlakeAPI } = await import('@/lib/wavlake');
                                           const track = await wavlakeAPI.getTrack(result.id);
                                           const musicTrack = convertToMusicTrack(track);
-                                          playTrack(musicTrack);
+                                          handleTrackPlay(musicTrack);
                                         } catch {
                                           toast({
                                             title: 'Failed to Play Track',
@@ -984,7 +953,7 @@ export default function WavlakeExplore() {
                                   onClick={() => {
                                     const musicTrack = convertToMusicTrack(track);
                                     const albumTracks = albumData?.tracks.map(convertToMusicTrack) || [];
-                                    playTrack(musicTrack, albumTracks);
+                                    handleTrackPlay(musicTrack, albumTracks);
                                   }}
                                 >
                                   <Play className="h-3 w-3 mr-1" />
@@ -1043,18 +1012,6 @@ export default function WavlakeExplore() {
           </TabsContent>
         </Tabs>
 
-        {/* Music Player - Fixed to bottom on mobile, floating on desktop */}
-        {currentTrack && (
-          <div className="fixed bottom-0 left-0 right-0 sm:bottom-4 sm:left-4 sm:right-4 z-50">
-            <MusicPlayer
-              track={currentTrack}
-              autoPlay={isPlaying}
-              onNext={currentTrackList.length > 1 ? handleNext : undefined}
-              onPrevious={currentTrackList.length > 1 ? handlePrevious : undefined}
-              onClose={handleClosePlayer}
-            />
-          </div>
-        )}
 
         {/* Controlled modal for track suggestions from search results */}
         <SuggestTrackModalControlled

@@ -6,13 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
 import { AddToPlaylistButton } from '@/components/music/AddToPlaylistButton';
 import { useWavlakeTrack } from '@/hooks/useWavlake';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
+import { useGlobalMusicPlayer } from '@/hooks/useGlobalMusicPlayer';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { 
   Music, 
@@ -37,6 +37,7 @@ const WavlakeTrack = () => {
   const { user } = useCurrentUser();
   const { mutateAsync: publishEvent } = useNostrPublish();
   const { toast } = useToast();
+  const { playTrack, isTrackPlaying } = useGlobalMusicPlayer();
   
   // For now, we'll use a placeholder hook until we implement the actual Wavlake API integration
   // TODO: Implement useWavlakeTrack hook to fetch track details from Wavlake API
@@ -125,6 +126,13 @@ const WavlakeTrack = () => {
       });
     }
   }, [user, publishEvent, toast, trackData]);
+
+  // Play track function
+  const handlePlayTrack = useCallback(() => {
+    if (trackData) {
+      playTrack(trackData, [trackData]);
+    }
+  }, [trackData, playTrack]);
 
   useSeoMeta({
     title: trackData ? `${trackData.title || 'Unknown Track'} - ${trackData.artist || 'Unknown Artist'}` : 'Track',
@@ -338,11 +346,49 @@ const WavlakeTrack = () => {
             </CardContent>
           </Card>
 
-          {/* Music Player */}
-          <MusicPlayer
-            track={trackData}
-            autoPlay={false}
-          />
+          {/* Track Actions */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  onClick={handlePlayTrack}
+                  disabled={!trackData}
+                  className="flex items-center gap-2 px-8"
+                >
+                  {isTrackPlaying(trackData?.id || '') ? (
+                    <>
+                      <Music className="h-5 w-5" />
+                      Playing
+                    </>
+                  ) : (
+                    <>
+                      <Music className="h-5 w-5" />
+                      Play Track
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={handleVoteForTrack}
+                  disabled={!user || !trackData}
+                  className="flex items-center gap-2"
+                >
+                  <Heart className="h-4 w-4" />
+                  Vote for Top Track
+                </Button>
+                
+                <SuggestTrackModal track={trackData}>
+                  <Button variant="outline" disabled={!trackData}>
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Suggest to Peachy
+                  </Button>
+                </SuggestTrackModal>
+                
+                <AddToPlaylistButton track={trackData} />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Track Description */}
           {trackData.description && (

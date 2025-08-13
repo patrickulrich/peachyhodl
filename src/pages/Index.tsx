@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LiveStreamPlayer } from '@/components/livestream/LiveStreamPlayer';
@@ -9,12 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FollowButton } from '@/components/FollowButton';
-import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { WavlakeZapDialog } from '@/components/music/WavlakeZapDialog';
 import { LiveNextModal } from '@/components/livestream/LiveNextModal';
 import { useLiveStream } from '@/hooks/useLiveStream';
 import { usePictures } from '@/hooks/usePictures';
 import { useWavlakePicks } from '@/hooks/useMusicLists';
+import { useGlobalMusicPlayer } from '@/hooks/useGlobalMusicPlayer';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import { Bitcoin, Sparkles, Music, Play, Pause, Zap } from 'lucide-react';
 
@@ -34,24 +34,12 @@ const Index = () => {
   const shouldShowLiveStream = liveStreamData?.isLive && liveStreamData?.streamUrl;
   const { data: pictures = [], isLoading: isLoadingPictures } = usePictures(6);
   const { data: wavlakeList, isLoading: isLoadingMusic } = useWavlakePicks();
-  
-  const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { playTrack, isTrackPlaying } = useGlobalMusicPlayer();
 
   const featuredTracks = wavlakeList?.tracks?.slice(0, 3) || [];
 
   const handleTrackPlay = (track: MusicTrack) => {
-    if (currentTrack?.id === track.id) {
-      setIsPlaying(!isPlaying);
-    } else {
-      setCurrentTrack(track);
-      setIsPlaying(true);
-    }
-  };
-
-  const handleClosePlayer = () => {
-    setCurrentTrack(null);
-    setIsPlaying(false);
+    playTrack(track, featuredTracks);
   };
 
   // Generate live event ID for chat
@@ -179,8 +167,7 @@ const Index = () => {
           ) : featuredTracks.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {featuredTracks.map((track) => {
-                const isCurrentTrack = currentTrack?.id === track.id;
-                const trackIsPlaying = isCurrentTrack && isPlaying;
+                const trackIsPlaying = isTrackPlaying(track.id);
 
                 return (
                   <Card key={track.id} className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -269,26 +256,6 @@ const Index = () => {
           )}
         </section>
 
-        {/* Music Player */}
-        {currentTrack && (
-          <div className="fixed bottom-4 left-4 right-4 z-50">
-            <MusicPlayer
-              track={currentTrack}
-              autoPlay={isPlaying}
-              onNext={featuredTracks.length > 1 ? () => {
-                const currentIndex = featuredTracks.findIndex(t => t.id === currentTrack.id);
-                const nextIndex = (currentIndex + 1) % featuredTracks.length;
-                setCurrentTrack(featuredTracks[nextIndex]);
-              } : undefined}
-              onPrevious={featuredTracks.length > 1 ? () => {
-                const currentIndex = featuredTracks.findIndex(t => t.id === currentTrack.id);
-                const prevIndex = currentIndex === 0 ? featuredTracks.length - 1 : currentIndex - 1;
-                setCurrentTrack(featuredTracks[prevIndex]);
-              } : undefined}
-              onClose={handleClosePlayer}
-            />
-          </div>
-        )}
       </div>
     </MainLayout>
   );

@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { PersistentMusicPlayer } from "./components/music/PersistentMusicPlayer";
 
 import Index from "./pages/Index";
 import Photos from "./pages/Photos";
@@ -58,6 +59,7 @@ export function AppRouter() {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <PersistentMusicPlayer />
     </BrowserRouter>
   );
 }

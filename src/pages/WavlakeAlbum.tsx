@@ -7,7 +7,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useWavlakeAlbum } from '@/hooks/useWavlake';
 import { Music, ExternalLink, Calendar, Play, Clock, Plus, MessageCircle } from 'lucide-react';
 import { MusicTrack } from '@/hooks/useMusicLists';
-import { MusicPlayer } from '@/components/music/MusicPlayer';
 import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
 import { useState, useCallback } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -15,6 +14,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/useToast';
 import { useWavlakePicks } from '@/hooks/useMusicLists';
+import { useGlobalMusicPlayer } from '@/hooks/useGlobalMusicPlayer';
 
 // Peachy's pubkey
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
@@ -22,14 +22,13 @@ const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc3
 export default function WavlakeAlbum() {
   const { albumId } = useParams<{ albumId: string }>();
   const { data: album, isLoading, error } = useWavlakeAlbum(albumId);
-  const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
   const [isAddingTrack, setIsAddingTrack] = useState(false);
   
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { mutateAsync: publishEvent } = useNostrPublish();
   const queryClient = useQueryClient();
+  const { playTrack, isTrackPlaying } = useGlobalMusicPlayer();
   
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
   
@@ -63,24 +62,9 @@ export default function WavlakeAlbum() {
     pubkey: track.artistNpub,
   })) || [];
 
-  const playTrack = (track: MusicTrack, index: number) => {
-    setSelectedTrack(track);
-    setCurrentTrackIndex(index);
-  };
-
-  const handleNext = () => {
-    const nextIndex = currentTrackIndex + 1;
-    if (nextIndex < musicTracks.length) {
-      playTrack(musicTracks[nextIndex], nextIndex);
-    }
-  };
-
-  const handlePrevious = () => {
-    const prevIndex = currentTrackIndex - 1;
-    if (prevIndex >= 0) {
-      playTrack(musicTracks[prevIndex], prevIndex);
-    }
-  };
+  const handlePlayTrack = useCallback((track: MusicTrack) => {
+    playTrack(track, musicTracks);
+  }, [playTrack, musicTracks]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -277,7 +261,7 @@ export default function WavlakeAlbum() {
 
                   <div className="flex items-center gap-4">
                     <Button 
-                      onClick={() => album.tracks.length > 0 && playTrack(musicTracks[0], 0)}
+                      onClick={() => album.tracks.length > 0 && handlePlayTrack(musicTracks[0])}
                       disabled={album.tracks.length === 0}
                     >
                       <Play className="h-4 w-4 mr-2" />
@@ -313,9 +297,9 @@ export default function WavlakeAlbum() {
                   <div
                     key={track.id}
                     className={`flex items-center gap-4 p-3 rounded-lg transition-colors cursor-pointer group ${
-                      selectedTrack?.id === track.id ? 'bg-primary/10' : 'hover:bg-accent'
+                      isTrackPlaying(track.id) ? 'bg-primary/10' : 'hover:bg-accent'
                     }`}
-                    onClick={() => playTrack(track, index)}
+                    onClick={() => handlePlayTrack(track)}
                   >
                     <div className="w-8 h-8 flex items-center justify-center text-sm font-medium text-muted-foreground">
                       <span className="group-hover:hidden">{index + 1}</span>
@@ -338,7 +322,7 @@ export default function WavlakeAlbum() {
                       <Link
                         to={`/wavlake/${track.id}`}
                         className={`font-medium truncate hover:underline block ${
-                          selectedTrack?.id === track.id ? 'text-primary' : 'hover:text-primary'
+                          isTrackPlaying(track.id) ? 'text-primary' : 'hover:text-primary'
                         }`}
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -402,19 +386,6 @@ export default function WavlakeAlbum() {
             </CardContent>
           </Card>
 
-          {/* Music Player */}
-          {selectedTrack && (
-            <Card>
-              <CardContent className="p-6">
-                <MusicPlayer 
-                  track={selectedTrack} 
-                  onNext={currentTrackIndex < musicTracks.length - 1 ? handleNext : undefined}
-                  onPrevious={currentTrackIndex > 0 ? handlePrevious : undefined}
-                  autoPlay
-                />
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </MainLayout>

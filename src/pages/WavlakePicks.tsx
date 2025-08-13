@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -7,14 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RelaySelector } from '@/components/RelaySelector';
-import { MusicPlayer } from '@/components/music/MusicPlayer';
-import { TrackList } from '@/components/music/TrackList';
+import { GlobalTrackList } from '@/components/music/GlobalTrackList';
 import { ManagePicksDialog } from '@/components/music/ManagePicksDialog';
 import { useWavlakePicks, useTracksFromList } from '@/hooks/useMusicLists';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useToast } from '@/hooks/useToast';
-import type { MusicTrack } from '@/hooks/useMusicLists';
 import { Music, Settings, ExternalLink, Zap, Compass, Monitor } from 'lucide-react';
 
 // Peachy's pubkey for checking if current user is Peachy
@@ -27,107 +23,17 @@ const WavlakePicks = () => {
   });
 
   const { user } = useCurrentUser();
-  const { toast } = useToast();
-  const { mutateAsync: publishEvent } = useNostrPublish();
   const { data: wavlakeList, isLoading: isListLoading, error: listError } = useWavlakePicks();
   const { data: tracks = [], isLoading: isTracksLoading, error: tracksError } = useTracksFromList(wavlakeList?.tracks || []);
-  
-  const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
 
   const isLoading = isListLoading || isTracksLoading;
   const error = listError || tracksError;
   const isPeachy = user?.pubkey === PEACHY_PUBKEY;
 
-  const handleTrackSelect = (track: MusicTrack) => {
-    if (currentTrack?.id === track.id) {
-      setIsPlaying(!isPlaying);
-    } else {
-      setCurrentTrack(track);
-      setIsPlaying(true);
-    }
-  };
-
-  const handleTogglePlayPause = (track: MusicTrack) => {
-    if (currentTrack?.id === track.id) {
-      setIsPlaying(!isPlaying);
-    } else {
-      setCurrentTrack(track);
-      setIsPlaying(true);
-    }
-  };
-
-  const handleNext = () => {
-    if (!currentTrack || tracks.length === 0) return;
-    
-    const currentIndex = tracks.findIndex(track => track.id === currentTrack.id);
-    const nextIndex = (currentIndex + 1) % tracks.length;
-    setCurrentTrack(tracks[nextIndex]);
-    setIsPlaying(true); // Auto-play the next track
-  };
-
-  const handlePrevious = () => {
-    if (!currentTrack || tracks.length === 0) return;
-    
-    const currentIndex = tracks.findIndex(track => track.id === currentTrack.id);
-    const prevIndex = currentIndex === 0 ? tracks.length - 1 : currentIndex - 1;
-    setCurrentTrack(tracks[prevIndex]);
-    setIsPlaying(true); // Auto-play the previous track
-  };
-
   // Data refresh is now handled by React Query invalidation in ManagePicksDialog
   const handleListUpdated = () => {
     // No need to do anything here - the ManagePicksDialog handles cache invalidation
   };
-
-  const handleClosePlayer = () => {
-    setCurrentTrack(null);
-    setIsPlaying(false);
-  };
-
-  // Vote for track function
-  const handleVoteForTrack = useCallback(async (track: MusicTrack) => {
-    if (!user) {
-      toast({
-        title: 'Login Required',
-        description: 'Please log in to vote for songs.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      // Create the voting event using Kind 30003 (Bookmark Sets)
-      const votingEvent = {
-        kind: 30003,
-        content: '',
-        tags: [
-          ['d', 'peachy-song-vote'], // Our specific identifier
-          ['title', 'Weekly Song Vote'],
-          ['description', 'My vote for the best song of the week'],
-          ['r', `https://wavlake.com/track/${track.id}`], // Reference to the Wavlake track
-          ['track_title', track.title],
-          ['track_artist', track.artist],
-          ['track_id', track.id]
-        ]
-      };
-
-      await publishEvent(votingEvent);
-
-      toast({
-        title: 'Vote Submitted!',
-        description: `Voted for "${track.title}" by ${track.artist}`,
-      });
-
-    } catch (error) {
-      console.error('Failed to submit vote:', error);
-      toast({
-        title: 'Vote Failed',
-        description: 'Could not submit your vote. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  }, [user, publishEvent, toast]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
@@ -295,17 +201,6 @@ const WavlakePicks = () => {
               </CardContent>
             </Card>
 
-            {/* Current track player */}
-            {currentTrack && (
-              <MusicPlayer
-                track={currentTrack}
-                autoPlay={isPlaying}
-                onNext={tracks.length > 1 ? handleNext : undefined}
-                onPrevious={tracks.length > 1 ? handlePrevious : undefined}
-                onClose={handleClosePlayer}
-              />
-            )}
-
             {/* Track list */}
             {tracks.length > 0 ? (
               <div className="space-y-4">
@@ -316,14 +211,7 @@ const WavlakePicks = () => {
                   </Badge>
                 </div>
                 
-                <TrackList
-                  tracks={tracks}
-                  currentTrackId={currentTrack?.id}
-                  isPlaying={isPlaying}
-                  onTrackSelect={handleTrackSelect}
-                  onTogglePlayPause={handleTogglePlayPause}
-                  onVoteForTrack={handleVoteForTrack}
-                />
+                <GlobalTrackList tracks={tracks} />
               </div>
             ) : (
               <Card className="border-dashed">
@@ -362,9 +250,9 @@ const WavlakePicks = () => {
                 
                 {wavlakeList && (
                   <Button variant="outline" asChild>
-                    <a href={`/naddr1${wavlakeList.dTag}`}>
+                    <Link to={`/naddr1${wavlakeList.dTag}`}>
                       View on Nostr
-                    </a>
+                    </Link>
                   </Button>
                 )}
               </div>
