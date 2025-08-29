@@ -18,7 +18,7 @@ const DEFAULT_SEO = {
   title: 'PeachyHODL - Bitcoin Music, Gaming & Nostr Community',
   description: 'Join Peachy for Bitcoin music on Wavlake, gaming streams, and decentralized social experiences on Nostr. Bitcoin is the future and it\'s just peachy! 🍑⚡',
   keywords: 'Bitcoin, BTC, Wavlake, Nostr, music streaming, gaming, cryptocurrency, lightning network, decentralized social media, Bitcoin music, hodl, peachy, sats, zaps',
-  image: '/og-image.jpg', // We'll need to add this
+  image: 'https://peachyhodl.com/og-image.jpg',
   url: 'https://peachyhodl.com',
   twitterHandle: '@peachyhodl',
 };
