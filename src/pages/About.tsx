@@ -1,4 +1,5 @@
-import { useSeoMeta } from '@unhead/react';
+import { SEOHead, SEO_CONFIGS } from '@/components/SEOHead';
+import { PersonStructuredData } from '@/components/StructuredData';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -17,10 +18,6 @@ import type { Event } from 'nostr-tools';
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
 
 const About = () => {
-  useSeoMeta({
-    title: 'About Peachy - Bitcoin Advocate',
-    description: 'Learn more about Peachy, a passionate Bitcoin advocate and content creator on Nostr.',
-  });
 
   const author = useAuthor(PEACHY_PUBKEY);
   const metadata = author.data?.metadata;
@@ -37,7 +34,26 @@ const About = () => {
   };
 
   return (
-    <MainLayout>
+    <>
+      <SEOHead 
+        {...SEO_CONFIGS.about}
+        url="https://peachyhodl.com/about"
+      />
+      <PersonStructuredData
+        name="Peachy"
+        alternateName="PeachyHODL"
+        description="Bitcoin content creator, music enthusiast, and gaming streamer building on Nostr protocol"
+        url="https://peachyhodl.com/about"
+        image={metadata?.picture}
+        jobTitle="Bitcoin Content Creator"
+        sameAs={[
+          "https://x.com/peachyhodl",
+          "https://www.tiktok.com/@peachyhodl",
+          "https://peachyhodl.com"
+        ]}
+      />
+      
+      <MainLayout>
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
           <Card>
@@ -180,6 +196,7 @@ Let's make the future peachy together! 🍑⚡`}
         <LinkTreeShowcase className="mt-8" />
       </div>
     </MainLayout>
+    </>
   );
 };
 

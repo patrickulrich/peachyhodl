@@ -1,5 +1,6 @@
 import React from 'react';
-import { useSeoMeta } from '@unhead/react';
+import { SEOHead } from '@/components/SEOHead';
+import { WebSiteStructuredData, OrganizationStructuredData } from '@/components/StructuredData';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { LiveStreamPlayer } from '@/components/livestream/LiveStreamPlayer';
 import { LiveChat } from '@/components/livestream/LiveChat';
@@ -23,10 +24,6 @@ import { Bitcoin, Sparkles, Music, Play, Pause, Zap } from 'lucide-react';
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
 
 const Index = () => {
-  useSeoMeta({
-    title: 'Peachy - Bitcoin is the future and it\'s just peachy',
-    description: 'Join Peachy for live streams, photos, and Bitcoin content on Nostr.',
-  });
 
   const { data: liveStreamData } = useLiveStream();
   
@@ -50,7 +47,20 @@ const Index = () => {
     : null;
 
   return (
-    <MainLayout>
+    <>
+      <SEOHead 
+        title="Peachy - Bitcoin is the future and it's just peachy"
+        description="Join Peachy for Bitcoin music streaming on Wavlake, gaming content, and decentralized social experiences on Nostr. Stack sats, zap creators, and vibe with the community! 🍑⚡"
+        keywords="Bitcoin, Wavlake, music streaming, gaming, Nostr, lightning network, sats, zaps, hodl, peachy"
+      />
+      <WebSiteStructuredData 
+        name="PeachyHODL"
+        url="https://peachyhodl.com"
+        description="Bitcoin music, gaming, and Nostr community content by Peachy"
+      />
+      <OrganizationStructuredData />
+      
+      <MainLayout>
       <div className="container mx-auto px-4 py-8">
         {/* Live Stream or Hero Section */}
         {shouldShowLiveStream ? (
@@ -258,6 +268,7 @@ const Index = () => {
 
       </div>
     </MainLayout>
+    </>
   );
 };
 

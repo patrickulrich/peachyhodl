@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useSeoMeta } from '@unhead/react';
+import { SEOHead, SEO_CONFIGS } from '@/components/SEOHead';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,6 @@ import { Music, Settings, ExternalLink, Zap, Compass, Monitor } from 'lucide-rea
 const PEACHY_PUBKEY = "0e7b8b91f952a3c994f51d2a69f0b62c778958aad855e10fef8813bc382ed820";
 
 const WavlakePicks = () => {
-  useSeoMeta({
-    title: 'Peachy\'s Weekly Wavlake Picks',
-    description: 'Discover Peachy\'s favorite Bitcoin music picks from Wavlake.',
-  });
 
   const { user } = useCurrentUser();
   const { data: wavlakeList, isLoading: isListLoading, error: listError } = useWavlakePicks();
@@ -44,7 +40,16 @@ const WavlakePicks = () => {
   };
 
   return (
-    <MainLayout>
+    <>
+      <SEOHead 
+        {...SEO_CONFIGS.music}
+        title="Peachy's Weekly Wavlake Picks - Bitcoin Music Curation"
+        description="Discover Peachy's hand-picked Bitcoin music from Wavlake. Support artists directly with Lightning payments and explore the future of music monetization."
+        url="https://peachyhodl.com/picks"
+        keywords="Bitcoin music, Wavlake picks, music curation, Lightning payments, sats4music, Peachy music"
+      />
+      
+      <MainLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -261,6 +266,7 @@ const WavlakePicks = () => {
         </Card>
       </div>
     </MainLayout>
+    </>
   );
 };
 
