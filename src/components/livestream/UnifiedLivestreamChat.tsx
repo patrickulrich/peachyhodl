@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Twitch, Zap, LogOut, LogIn, Gift, Heart, Users, Sparkles, Crown, UserPlus } from "lucide-react";
 import { useNostr } from "@nostrify/react";
-import { useQuery } from "@tanstack/react-query";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useTwitchEventSub } from "@/hooks/useTwitchEventSub";
@@ -19,6 +18,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useMessageModeration } from "@/hooks/useMessageModeration";
 import { isUserMentioned } from "@/lib/mentions";
 import LoginDialog from "@/components/auth/LoginDialog";
+import { ZapButton } from "@/components/ZapButton";
 import type { NostrEvent } from "@nostrify/nostrify";
 import type { TwitchMessage } from "@/lib/twitch";
 import { cn } from "@/lib/utils";
@@ -164,6 +164,7 @@ function NostrChatMessage({ message, isPeachy, isNew }: NostrChatMessageProps) {
               Nostr
             </Badge>
             <ReactionButton message={message} className="ml-2" />
+            <ZapButton target={message} className="ml-2 text-xs" showCount={true} />
             {isPeachy && (
               <Badge variant="default" className="bg-gradient-to-r from-pink-500 to-pink-600 text-white border-0 flex-shrink-0">
                 HOST
@@ -428,63 +429,116 @@ function ZapNotificationMessage({ satoshis, zapType, senderPubkey, message, isNe
 
 function useLivestreamData() {
   const { nostr } = useNostr();
+  const [liveEvent, setLiveEvent] = useState<NostrEvent | null>(null);
+  const [messages, setMessages] = useState<ExtendedNostrEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    setIsLoading(true);
+    
+    // Create real-time subscription using AbortController for cleanup
+    const abortController = new AbortController();
+    
+    // Simple timeout for better UX - don't wait forever for EOSE
+    const loadingTimeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000); // 3 second timeout
+    
+    const subscribeToLivestream = async () => {
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const oneDayAgo = now - (24 * 60 * 60);
 
-  return useQuery({
-    queryKey: ['unified-livestream-chat', PEACHY_HEX],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-      const now = Math.floor(Date.now() / 1000);
-      const oneDayAgo = now - (24 * 60 * 60);
+        // First get live events where Peachy is a participant
+        const allEvents = await nostr.query([{
+          kinds: [30311],
+          limit: 100,
+        }], { signal: abortController.signal });
 
-      // Get live events where Peachy is a participant (same as homepage)
-      const allEvents = await nostr.query([{
-        kinds: [30311],
-        limit: 100,
-      }], { signal });
+        // Filter for events where Peachy is a participant
+        const peachyEvents = allEvents.filter(event => {
+          // Check if Peachy's pubkey is in any p tag
+          return event.tags.some(tag => 
+            tag[0] === 'p' && tag[1] === PEACHY_HEX
+          );
+        });
 
-      // Filter for events where Peachy is a participant
-      const peachyEvents = allEvents.filter(event => {
-        // Check if Peachy's pubkey is in any p tag
-        return event.tags.some(tag => 
-          tag[0] === 'p' && tag[1] === PEACHY_HEX
-        );
-      });
-
-
-      // Find the most recent live event (same as homepage logic)
-      const liveEvent = peachyEvents
-        .sort((a, b) => b.created_at - a.created_at)[0];
-      
-      // Get chat messages for that specific live event (like homepage)
-      let allMessages: ExtendedNostrEvent[] = [];
-      
-      if (liveEvent) {
-        const dTag = liveEvent.tags.find(([t]) => t === "d")?.[1];
+        // Find the most recent live event
+        const currentLiveEvent = peachyEvents
+          .sort((a, b) => b.created_at - a.created_at)[0];
         
-        if (dTag) {
-          const eventATag = `30311:${liveEvent.pubkey}:${dTag}`;
+        setLiveEvent(currentLiveEvent || null);
+        
+        // If we have a live event, subscribe to its messages
+        if (currentLiveEvent) {
+          const dTag = currentLiveEvent.tags.find(([t]) => t === "d")?.[1];
           
-          // Query messages directly with #a filter (same as homepage)
-          const chatMessages = await nostr.query([{
-            kinds: [1311],
-            "#a": [eventATag],
-            since: oneDayAgo,
-            limit: 200
-          }], { signal });
-          
-          allMessages = chatMessages
-            .sort((a, b) => a.created_at - b.created_at)
-            .slice(-300); // Keep last 300 messages
-        }
-      }
+          if (dTag) {
+            const eventATag = `30311:${currentLiveEvent.pubkey}:${dTag}`;
+            
+            // Use req() for real-time streaming of messages
+            const messageStream = nostr.req([{
+              kinds: [1311],
+              "#a": [eventATag],
+              since: oneDayAgo,
+              limit: 200
+            }], { signal: abortController.signal });
 
-      return {
-        liveEvent,
-        messages: allMessages
-      };
+            for await (const msg of messageStream) {
+              if (msg[0] === 'EVENT') {
+                const event = msg[2];
+                
+                // Handle chat messages
+                setMessages(prev => {
+                  // Check if message already exists to prevent duplicates
+                  const exists = prev.some(msg => msg.id === event.id);
+                  if (exists) return prev;
+                  
+                  // Add new message and sort by timestamp, keep last 300
+                  const newMessages = [...prev, event]
+                    .sort((a, b) => a.created_at - b.created_at)
+                    .slice(-300);
+                  return newMessages;
+                });
+              } else if (msg[0] === 'EOSE') {
+                clearTimeout(loadingTimeout);
+                setIsLoading(false);
+              } else if (msg[0] === 'CLOSED') {
+                clearTimeout(loadingTimeout);
+                break;
+              }
+            }
+          }
+        } else {
+          // No live event found, stop loading
+          clearTimeout(loadingTimeout);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        clearTimeout(loadingTimeout);
+        if (error.name !== 'AbortError') {
+          console.error("Livestream subscription error:", error);
+        }
+        setIsLoading(false);
+      }
+    };
+
+    subscribeToLivestream();
+
+    // Cleanup subscription on unmount or dependency change
+    return () => {
+      clearTimeout(loadingTimeout);
+      abortController.abort();
+    };
+  }, [nostr]);
+
+  return {
+    data: {
+      liveEvent,
+      messages
     },
-    refetchInterval: 5000, // Refetch every 5 seconds for real-time updates
-  });
+    isLoading
+  };
 }
 
 export function UnifiedLivestreamChat() {

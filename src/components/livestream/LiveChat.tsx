@@ -13,6 +13,7 @@ import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useMessageModeration } from "@/hooks/useMessageModeration";
 import { isUserMentioned } from "@/lib/mentions";
 import { ReactionButton } from "@/components/reactions/ReactionButton";
+import { ZapButton } from "@/components/ZapButton";
 import { NoteContent } from "@/components/NoteContent";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
@@ -56,8 +57,9 @@ function ChatMessage({ message, isNew }: { message: NostrEvent, isNew?: boolean 
           <span className="text-xs text-muted-foreground flex-shrink-0">
             {new Date(message.created_at * 1000).toLocaleTimeString()}
           </span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <ReactionButton message={message} />
+            <ZapButton target={message} className="text-xs" showCount={true} />
           </div>
         </div>
         <div className="text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap" style={{ wordWrap: 'break-word', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>

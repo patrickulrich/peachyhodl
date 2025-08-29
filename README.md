@@ -22,6 +22,7 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **🎶 Party View** - Full-screen music experience with artist info and Lightning QR codes for zapping
 - **⚡ Lightning Zaps** - Direct LNURL integration with Wavlake for seamless Bitcoin payments to artists
 - **🏆 Weekly Song Leaderboard** - Community-driven voting system for top tracks using kind 30003 events
+- **🎉 Top 3 Countdown Party View** - Full-screen countdown experience with the most voted tracks (3rd → 2nd → 1st place)
 - **🎤 Single-Vote System** - One vote per user for authentic community-driven music rankings using NIP-51 replaceable events
 - **💡 Track Suggestions** - Users can suggest tracks to Peachy with messaging system
 
@@ -30,8 +31,10 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **📸 Photo Galleries** - NIP-68 picture feeds with responsive grid layout and lightbox viewing
 - **📅 Event Calendar** - Upcoming and past live events via NIP-53 with status tracking
 - **💬 Advanced Comments System** - Threaded discussions on all content using NIP-22
-- **❤️ Interactive Reactions** - NIP-25 reactions on live chat messages with tap-to-like and long-press emoji selector
+- **❤️ Interactive Reactions** - NIP-25 reactions on live chat messages with tap-to-like and long-press emoji selector (shows only top reaction)
+- **⚡ Chat Zapping** - Lightning zap individual chat messages with instant total display and 21 sats preset option
 - **🛡️ Chat Moderation** - Peachy can moderate live chat by reacting with ❌ to hide inappropriate messages instantly
+- **🚀 Real-time Updates** - Instant chat message, reaction, and zap updates using Nostr req() subscriptions
 - **🖼️ Image Previews** - Click-to-view image rendering for .png/.jpg/.gif/.webp links in chat messages
 - **🔍 Smart Mentions** - @ mention search/sort functionality with real-time participant filtering
 - **💙 Mention Highlighting** - Messages that @ mention the current user are highlighted with distinctive blue styling
@@ -232,7 +235,7 @@ npm test
 ### Adding Features
 - **New NIPs** - Extend Nostr functionality by implementing additional NIPs
 - **Components** - Add custom UI components in `src/components/`
-- **Pages** - Create new pages in `src/pages/` and update routing (19+ pages currently implemented)
+- **Pages** - Create new pages in `src/pages/` and update routing (20+ pages currently implemented)
 - **Hooks** - Build custom React hooks for Nostr data in `src/hooks/` (25+ specialized hooks available)
 - **WebRTC Integration** - Implement NIP-100 compatible voice chat following chakany's specification
 
@@ -299,7 +302,7 @@ src/
 │   ├── useMessageModeration.ts  # Chat moderation via ❌ reactions
 │   ├── useUploadFile.ts         # File uploads (NIP-96)
 │   └── ...                      # 10+ additional specialized hooks
-├── pages/                        # Page components (19+ pages)
+├── pages/                        # Page components (20+ pages)
 │   ├── Index.tsx                # Home page with live streams
 │   ├── About.tsx                # Profile page
 │   ├── Blog.tsx                 # Long-form content (NIP-23)
@@ -313,6 +316,7 @@ src/
 │   ├── WavlakeExplore.tsx       # Music discovery
 │   ├── WeeklySongsLeaderboard.tsx # Community voting
 │   ├── PartyView.tsx            # Full-screen music player
+│   ├── LeaderboardPartyView.tsx # Top 3 countdown party mode
 │   ├── EditProfile.tsx          # Profile editing
 │   ├── NotificationsPage.tsx    # Admin notifications
 │   ├── NIP19Page.tsx            # NIP-19 route handler

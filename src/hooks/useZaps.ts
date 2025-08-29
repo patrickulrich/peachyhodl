@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useAppContext } from '@/hooks/useAppContext';
@@ -72,6 +72,73 @@ export function useZaps(
     },
     enabled: !!actualTarget?.id,
   });
+
+  // Set up real-time subscription for new zap receipts
+  const subscriptionRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!actualTarget?.id) return;
+
+    // Cancel any existing subscription
+    if (subscriptionRef.current) {
+      subscriptionRef.current.abort();
+    }
+
+    // Create new subscription
+    subscriptionRef.current = new AbortController();
+    const signal = subscriptionRef.current.signal;
+
+    const subscribeToZaps = async () => {
+      try {
+        let zapFilters;
+        if (actualTarget.kind >= 30000 && actualTarget.kind < 40000) {
+          // Addressable event
+          const identifier = actualTarget.tags.find((t) => t[0] === 'd')?.[1] || '';
+          zapFilters = [{
+            kinds: [9735],
+            '#a': [`${actualTarget.kind}:${actualTarget.pubkey}:${identifier}`],
+          }];
+        } else {
+          // Regular event
+          zapFilters = [{
+            kinds: [9735],
+            '#e': [actualTarget.id],
+          }];
+        }
+
+        const zapStream = nostr.req(zapFilters, { signal });
+
+        for await (const msg of zapStream) {
+          if (msg[0] === 'EVENT') {
+            // Immediately invalidate queries to trigger refetch with new zap
+            queryClient.invalidateQueries({ queryKey: ['zaps', actualTarget.id] });
+            
+            // Also trigger a specific refetch to be more aggressive
+            setTimeout(() => {
+              queryClient.refetchQueries({ queryKey: ['zaps', actualTarget.id] });
+            }, 100);
+          } else if (msg[0] === 'EOSE') {
+            // End of stored events
+          } else if (msg[0] === 'CLOSED') {
+            break;
+          }
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.warn("Zap subscription error:", error);
+        }
+      }
+    };
+
+    // Start subscription immediately
+    subscribeToZaps();
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.abort();
+      }
+    };
+  }, [actualTarget, nostr, queryClient]);
 
   // Process zap events into simple counts and totals
   const { zapCount, totalSats, zaps } = useMemo(() => {

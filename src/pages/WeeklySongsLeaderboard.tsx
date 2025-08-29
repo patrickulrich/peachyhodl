@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/useToast';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGlobalMusicPlayer } from '@/hooks/useGlobalMusicPlayer';
-import { Trophy, Heart, Play, Plus, Music } from 'lucide-react';
+import { Trophy, Heart, Play, Plus, Music, Monitor } from 'lucide-react';
 import type { MusicTrack } from '@/hooks/useMusicLists';
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -362,13 +362,27 @@ export default function WeeklySongsLeaderboard() {
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4 flex items-center gap-3">
-            <Trophy className="h-10 w-10 text-primary" />
-            Weekly Songs Leaderboard
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            The top 10 most voted songs of the week from our community.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold mb-4 flex items-center gap-3">
+                <Trophy className="h-10 w-10 text-primary" />
+                Weekly Songs Leaderboard
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                The top 10 most voted songs of the week from our community.
+              </p>
+            </div>
+            
+            {/* Party View button - visible when we have at least 3 tracks */}
+            {leaderboardData.length >= 3 && !isLoading && (
+              <Button variant="outline" asChild>
+                <Link to="/leaderboard-party" className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4" />
+                  Top 3 Party View
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
 
         <Card>

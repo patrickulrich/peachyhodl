@@ -8,7 +8,7 @@ import { useWavlakeAlbum } from '@/hooks/useWavlake';
 import { Music, ExternalLink, Calendar, Play, Clock, Plus, MessageCircle } from 'lucide-react';
 import { MusicTrack } from '@/hooks/useMusicLists';
 import { SuggestTrackModal } from '@/components/music/SuggestTrackModal';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,31 +36,32 @@ export default function WavlakeAlbum() {
   const { data: _existingPicks } = useWavlakePicks();
 
   // Convert album tracks to MusicTrack format
-  const musicTracks: MusicTrack[] = album?.tracks.map((track) => ({
-    id: track.id,
-    title: track.title,
-    artist: track.artist,
-    album: track.albumTitle,
-    duration: track.duration,
-    image: track.albumArtUrl || track.artistArtUrl,
-    mediaUrl: track.mediaUrl,
-    albumArtUrl: track.albumArtUrl,
-    artistArtUrl: track.artistArtUrl,
-    artistId: track.artistId,
-    albumId: track.albumId,
-    artistNpub: track.artistNpub,
-    msatTotal: track.msatTotal,
-    releaseDate: track.releaseDate,
-    description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
-    publishedAt: new Date(track.releaseDate).getTime() / 1000,
-    urls: [{
-      url: track.mediaUrl,
-      mimeType: 'audio/mpeg',
-      quality: 'stream'
-    }],
-    createdAt: Math.floor(Date.now() / 1000),
-    pubkey: track.artistNpub,
-  })) || [];
+  const musicTracks: MusicTrack[] = useMemo(() => 
+    album?.tracks.map((track) => ({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.albumTitle,
+      duration: track.duration,
+      image: track.albumArtUrl || track.artistArtUrl,
+      mediaUrl: track.mediaUrl,
+      albumArtUrl: track.albumArtUrl,
+      artistArtUrl: track.artistArtUrl,
+      artistId: track.artistId,
+      albumId: track.albumId,
+      artistNpub: track.artistNpub,
+      msatTotal: track.msatTotal,
+      releaseDate: track.releaseDate,
+      description: `Track from ${track.artist} • Album: ${track.albumTitle}`,
+      publishedAt: new Date(track.releaseDate).getTime() / 1000,
+      urls: [{
+        url: track.mediaUrl,
+        mimeType: 'audio/mpeg',
+        quality: 'stream'
+      }],
+      createdAt: Math.floor(Date.now() / 1000),
+      pubkey: track.artistNpub,
+    })) || [], [album?.tracks]);
 
   const handlePlayTrack = useCallback((track: MusicTrack) => {
     playTrack(track, musicTracks);

@@ -117,38 +117,43 @@ export function ReactionButton({ message, className }: ReactionButtonProps) {
         </PopoverContent>
       </Popover>
 
-      {/* Show individual emoji reactions */}
+      {/* Show only the top reaction */}
       {reactionSummary.reactions.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
-          {reactionSummary.reactions.map((reaction) => {
+        <div className="flex items-center gap-1">
+          {(() => {
+            // Find the reaction with the highest count
+            const topReaction = reactionSummary.reactions.reduce((max, current) => 
+              current.count > max.count ? current : max
+            );
+
             // Use the first event with custom emoji tags, or fall back to any event
-            const eventWithEmoji = reaction.events.find(e => 
+            const eventWithEmoji = topReaction.events.find(e => 
               e.tags.some(tag => tag[0] === 'emoji')
-            ) || reaction.events[0];
+            ) || topReaction.events[0];
 
             return (
               <Button
-                key={reaction.content}
+                key={topReaction.content}
                 variant="ghost"
                 size="sm"
                 className={cn(
                   "h-6 px-1.5 text-xs transition-colors",
-                  reaction.userReacted && "bg-primary/10 ring-1 ring-primary/20",
-                  !reaction.userReacted && "text-muted-foreground hover:text-foreground"
+                  topReaction.userReacted && "bg-primary/10 ring-1 ring-primary/20",
+                  !topReaction.userReacted && "text-muted-foreground hover:text-foreground"
                 )}
-                onClick={() => handleEmojiSelect(reaction.content)}
+                onClick={() => handleEmojiSelect(topReaction.content)}
                 disabled={isAddingReaction}
               >
                 <span className="mr-0.5">
                   <ReactionContent 
-                    content={reaction.content}
+                    content={topReaction.content}
                     reactionEvent={eventWithEmoji}
                   />
                 </span>
-                <span className="tabular-nums">{reaction.count}</span>
+                <span className="tabular-nums">{topReaction.count}</span>
               </Button>
             );
-          })}
+          })()}
         </div>
       )}
     </div>
