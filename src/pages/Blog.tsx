@@ -1,4 +1,5 @@
-import { useSeoMeta } from '@unhead/react';
+import { SEOHead, SEO_CONFIGS } from '@/components/SEOHead';
+import { nip19 } from 'nostr-tools';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,10 +10,6 @@ import { useBlogPosts } from '@/hooks/useBlogPosts';
 import { BookOpen, Calendar, Clock, ArrowRight, FileText } from 'lucide-react';
 
 const Blog = () => {
-  useSeoMeta({
-    title: 'Blog - Peachy',
-    description: 'Read Peachy\'s thoughts on Bitcoin, Lightning, and the future of money.',
-  });
 
   const { data: blogPosts, isLoading, error } = useBlogPosts();
 
@@ -49,12 +46,28 @@ const Blog = () => {
     return (lastSpace > 0 ? truncated.substring(0, lastSpace) : truncated) + '...';
   };
 
+  const getBlogPostUrl = (post: { dTag: string; pubkey: string }) => {
+    // Create proper naddr1 identifier for the blog post
+    const naddr = nip19.naddrEncode({
+      identifier: post.dTag,
+      pubkey: post.pubkey,
+      kind: 30023,
+    });
+    return `/${naddr}`;
+  };
+
   // Get featured post (most recent or first with image)
   const featuredPost = blogPosts?.find(post => post.image) || blogPosts?.[0];
   const otherPosts = blogPosts?.filter(post => post.id !== featuredPost?.id) || [];
 
   return (
-    <MainLayout>
+    <>
+      <SEOHead 
+        {...SEO_CONFIGS.blog}
+        url="https://peachyhodl.com/blog"
+      />
+      
+      <MainLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-4 flex items-center gap-3">
@@ -183,7 +196,7 @@ const Blog = () => {
                         </div>
                       )}
                       <Button className="w-fit" asChild>
-                        <a href={`/naddr1${featuredPost.dTag}`}>
+                        <a href={getBlogPostUrl(featuredPost)}>
                           Read More
                           <ArrowRight className="h-4 w-4 ml-2" />
                         </a>
@@ -246,7 +259,7 @@ const Blog = () => {
                           </div>
                         )}
                         <Button variant="ghost" className="w-full justify-between" asChild>
-                          <a href={`/naddr1${post.dTag}`}>
+                          <a href={getBlogPostUrl(post)}>
                             Read Post
                             <ArrowRight className="h-4 w-4" />
                           </a>
@@ -290,6 +303,7 @@ const Blog = () => {
         </Card>
       </div>
     </MainLayout>
+    </>
   );
 };
 

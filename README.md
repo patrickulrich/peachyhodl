@@ -27,7 +27,11 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **💡 Track Suggestions** - Users can suggest tracks to Peachy with messaging system
 
 ### **Content & Media**
-- **📝 Long-form Blog** - NIP-23 articles with rich content, images, and featured post highlighting
+- **📝 Long-form Blog** - NIP-23 articles with rich markdown content, syntax highlighting, and featured post highlighting
+- **✍️ Markdown Rendering** - Full GitHub Flavored Markdown support with syntax highlighting for code blocks
+- **🔗 Smart Link Handling** - Automatic detection and linking of Nostr URIs (npub, note, nevent, naddr) in markdown content
+- **📖 Blog Post Navigation** - Seamless navigation from blog listing to individual posts via proper naddr1 identifiers
+- **🎨 Rich Typography** - Beautiful typography with responsive design using Tailwind Typography
 - **📸 Photo Galleries** - NIP-68 picture feeds with responsive grid layout and lightbox viewing
 - **📅 Event Calendar** - Upcoming and past live events via NIP-53 with status tracking
 - **💬 Advanced Comments System** - Threaded discussions on all content using NIP-22
@@ -39,7 +43,7 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **🔍 Smart Mentions** - @ mention search/sort functionality with real-time participant filtering
 - **💙 Mention Highlighting** - Messages that @ mention the current user are highlighted with distinctive blue styling
 - **😀 Custom Emoji** - NIP-30 custom emoji support with :shortcode: rendering in all text content
-- **🔗 NIP-19 Routing** - Direct access to any Nostr content via npub, note, nevent, naddr URLs
+- **🔗 NIP-19 Routing** - Complete NIP-19 routing system with dedicated blog post pages accessible via naddr1 URLs
 - **📱 Unified Chat** - Global livestream chat system with real-time messaging and reactions
 
 ### **Admin Features** 
@@ -78,6 +82,12 @@ A decentralized personal website and social platform built entirely on Nostr pro
 - **File Upload** - Blossom server integration for media storage with NIP-96 support
 - **Lightning Integration** - LNURL payment processing for direct artist support via Wavlake API
 
+### **Content Rendering**
+- **Markdown Processing** - Full GitHub Flavored Markdown support with `react-markdown`
+- **Syntax Highlighting** - Beautiful code highlighting using `rehype-highlight` with GitHub themes
+- **Typography** - Rich typography using Tailwind Typography for optimal reading experience
+- **Smart Link Parsing** - Automatic Nostr URI detection and conversion in markdown content
+
 ## 📋 Supported NIPs
 
 | NIP | Feature | Implementation | Where Used |
@@ -90,12 +100,12 @@ A decentralized personal website and social platform built entirely on Nostr pro
 | [NIP-08](https://github.com/nostr-protocol/nips/blob/master/08.md) | Mentions | ✅ User mention detection via p tags | **Lib**: `mentions.ts` **Feature**: Mention highlighting supports both NIP-08 p-tags and NIP-27 text mentions |
 | [NIP-10](https://github.com/nostr-protocol/nips/blob/master/10.md) | Text Events and Threads | ✅ Reply references for comments and threading | **Component**: `NoteContent` **Hook**: `usePostComment` **Feature**: Comment threading structure |
 | [NIP-17](https://github.com/nostr-protocol/nips/blob/master/17.md) | Private DMs | ✅ Secure track suggestions via gift wrap | **Components**: `SuggestTrackModal`, `SuggestTrackModalControlled` **Hook**: `useTrackSuggestionNotifications` **Lib**: `nip17-proper.ts` |
-| [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md) | bech32 Entities | ✅ Root-level routing for npub, note, nevent, naddr | **Page**: `NIP19Page` **Router**: `AppRouter.tsx` **Components**: `NoteContent`, URL handling throughout app |
+| [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md) | bech32 Entities | ✅ Complete NIP-19 routing with dedicated blog post pages for naddr1 URLs | **Page**: `NIP19Page` with `BlogPostView` **Router**: `AppRouter.tsx` **Components**: `Blog.tsx`, `MarkdownContent` **Feature**: Full blog post navigation system |
 | [NIP-21](https://github.com/nostr-protocol/nips/blob/master/21.md) | URI Scheme | ✅ nostr: URI parsing and handling | **Component**: `NoteContent` **Feature**: URL parsing and link handling |
 | [NIP-27](https://github.com/nostr-protocol/nips/blob/master/27.md) | Text Note References | ✅ Mention notifications and user tagging with highlighting | **Lib**: `mentions.ts` **Components**: `LiveStreamToolbar`, `LiveChat`, `UnifiedLivestreamChat` **Feature**: User mentions with blue highlight styling |
 | [NIP-30](https://github.com/nostr-protocol/nips/blob/master/30.md) | Custom Emoji | ✅ Custom emoji rendering in all text content | **Lib**: `customEmoji.ts` **Components**: `ProfileText`, `ReactionContent`, `NoteContent` **Feature**: :shortcode: custom emoji in posts, profiles, and reactions |
 | [NIP-22](https://github.com/nostr-protocol/nips/blob/master/22.md) | Comments | ✅ Threaded comment system | **Component**: `CommentsSection` **Hooks**: `useComments`, `usePostComment` **Feature**: Comments on all content types |
-| [NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md) | Long-form Content | ✅ Blog articles and rich content | **Page**: `Blog` **Hook**: `useBlogPosts` **Kind**: 30023 for articles |
+| [NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md) | Long-form Content | ✅ Blog articles with full markdown rendering and syntax highlighting | **Page**: `Blog`, `NIP19Page` **Hook**: `useBlogPosts`, `useBlogPost` **Component**: `MarkdownContent` **Kind**: 30023 for articles |
 | [NIP-25](https://github.com/nostr-protocol/nips/blob/master/25.md) | Reactions | ✅ Like and emoji reactions on chat messages | **Component**: `ReactionButton` **Hook**: `useReactions` **Pages**: LiveChat, UnifiedLivestreamChat **Feature**: Interactive message reactions with tap-to-like and long-press emoji selector |
 | [NIP-31](https://github.com/nostr-protocol/nips/blob/master/31.md) | Unknown Events | ✅ Alt tag descriptions for custom events | **Hook**: `useNotificationReadStatus` **Feature**: Human-readable event descriptions |
 | [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Lists | ✅ Music playlists and curation sets | **Components**: `ManagePicksDialog`, `AddToPlaylistButton` **Hook**: `useMusicLists` **Pages**: WeeklySongsLeaderboard, WavlakePicks |
@@ -278,6 +288,7 @@ src/
 │   │   ├── LiveStreamToolbar.tsx # Stream controls
 │   │   ├── UnifiedLivestreamChat.tsx
 │   │   └── LivestreamChat.tsx   # Chat message handling
+│   ├── MarkdownContent.tsx      # Rich markdown renderer with syntax highlighting
 │   └── ...                      # Layout, NoteContent, EditProfileForm, etc.
 ├── hooks/                        # Custom React hooks (25+ specialized hooks)
 │   ├── useNostr.ts              # Core Nostr integration
@@ -287,7 +298,7 @@ src/
 │   ├── useFollows.ts            # Social relationships (NIP-02)
 │   ├── useComments.ts           # Comment queries (NIP-22)
 │   ├── usePostComment.ts        # Comment publishing
-│   ├── useBlogPosts.ts          # Long-form content (NIP-23)
+│   ├── useBlogPosts.ts          # Long-form content queries (NIP-23) - includes useBlogPost hook
 │   ├── usePictures.ts           # Photo galleries (NIP-68)
 │   ├── useLiveEvents.ts         # Live streaming (NIP-53)
 │   ├── useLiveStream.ts         # Stream queries
